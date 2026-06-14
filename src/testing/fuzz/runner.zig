@@ -1,5 +1,7 @@
 const std = @import("std");
 
+const w32 = @import("win32").everything;
+
 const common = @import("common.zig");
 const event_fuzz = @import("event.zig");
 const lifecycle_fuzz = @import("lifecycle.zig");
@@ -97,16 +99,14 @@ pub const FuzzerResult = struct {
     sim_failures: u32,
 };
 
-pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
+pub fn main(init: std.process.Init) !void {
+    const allocator = init.gpa;
 
     var mode: Mode = .full;
     var iterations: ?u32 = null;
     var seed: ?u64 = null;
 
-    var args = try std.process.argsWithAllocator(allocator);
+    var args = try init.minimal.args.iterateAllocator(allocator);
     defer args.deinit();
 
     _ = args.skip();
@@ -141,7 +141,7 @@ pub fn run(config: *const Config) FuzzerResult {
 
     var prng = std.Random.DefaultPrng.init(config.seed);
     var sim = Simulator.init(config.seed);
-    const start_time = std.time.Instant.now() catch null;
+    const start_time: i64 = @intCast(w32.GetTickCount64());
 
     print_header(config);
 
@@ -163,18 +163,11 @@ fn print_header(config: *const Config) void {
     std.debug.print("\n", .{});
 }
 
-fn print_footer(result: *const FuzzerResult, start_time: ?std.time.Instant) void {
+fn print_footer(result: *const FuzzerResult, start_time: i64) void {
     std.debug.assert(@intFromPtr(result) != 0);
 
-    var elapsed_ms: u64 = 0;
-
-    if (start_time) |start| {
-        const now = std.time.Instant.now() catch null;
-
-        if (now) |n| {
-            elapsed_ms = n.since(start) / std.time.ns_per_ms;
-        }
-    }
+    const now_ms: i64 = @intCast(w32.GetTickCount64());
+    const elapsed_ms: i64 = now_ms - start_time;
 
     std.debug.print("\nWisp Fuzzer: Completed\n", .{});
     std.debug.print("Iteration(s): {d}\n", .{result.iterations});
@@ -188,7 +181,7 @@ fn print_footer(result: *const FuzzerResult, start_time: ?std.time.Instant) void
     }
 }
 
-fn run_fuzzer(config: *const Config, prng: *std.Random.DefaultPrng, sim: *Simulator, start_time: ?std.time.Instant) FuzzerResult {
+fn run_fuzzer(config: *const Config, prng: *std.Random.DefaultPrng, sim: *Simulator, start_time: i64) FuzzerResult {
     std.debug.assert(@intFromPtr(config) != 0);
     std.debug.assert(@intFromPtr(prng) != 0);
     std.debug.assert(@intFromPtr(sim) != 0);
@@ -213,15 +206,7 @@ fn run_fuzzer(config: *const Config, prng: *std.Random.DefaultPrng, sim: *Simula
         run_component_tests(iter_seed, config.mode) catch {};
 
         if (iteration > 0 and iteration % progress_interval == 0) {
-            var elapsed_ms: u64 = 0;
-
-            if (start_time) |start| {
-                const now = std.time.Instant.now() catch null;
-
-                if (now) |n| {
-                    elapsed_ms = n.since(start) / std.time.ns_per_ms;
-                }
-            }
+            const elapsed_ms: i64 = @as(i64, @intCast(w32.GetTickCount64())) - start_time;
 
             std.debug.print("Progress: {d} iterations in {d} ms\n", .{ iteration, elapsed_ms });
         }

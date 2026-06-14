@@ -171,7 +171,7 @@ fn loop(watcher: *Watcher) void {
         switch (result) {
             .stopped => break,
             .failed => {
-                std.Thread.sleep(ns_delay_error);
+                w32.Sleep(@intCast(error_delay_ms));
 
                 continue;
             },

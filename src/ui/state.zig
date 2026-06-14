@@ -1,5 +1,7 @@
 const std = @import("std");
 
+const w32 = @import("win32").everything;
+
 const event = @import("../event/root.zig");
 const runtime = @import("../runtime/root.zig");
 
@@ -173,7 +175,7 @@ pub const StateManager = struct {
 
         const transition = Transition{
             .from = self.previous[0..self.previous_len],
-            .timestamp_ms = std.time.milliTimestamp(),
+            .timestamp_ms = @intCast(w32.GetTickCount64()),
             .to = self.current[0..self.current_len],
         };
 

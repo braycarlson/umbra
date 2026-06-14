@@ -1,5 +1,7 @@
 const std = @import("std");
 
+const w32 = @import("win32").everything;
+
 pub const handler_max: u8 = 32;
 pub const kind_max: u8 = 12;
 
@@ -113,7 +115,7 @@ pub const Event = struct {
         const result = Event{
             .kind = kind,
             .payload = payload,
-            .timestamp_ms = std.time.milliTimestamp(),
+            .timestamp_ms = @intCast(w32.GetTickCount64()),
         };
 
         std.debug.assert(result.kind == kind);

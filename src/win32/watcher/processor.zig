@@ -56,7 +56,7 @@ pub fn process(
     std.debug.assert(iteration <= iteration_max);
 
     if (found) {
-        std.Thread.sleep(ns_debounce);
+        w32.Sleep(@intCast(debounce_ms));
         callback();
     }
 }

@@ -1,5 +1,7 @@
 const std = @import("std");
 
+const w32 = @import("win32").everything;
+
 pub const iteration_max: u32 = 1024;
 pub const shuffle_max: u8 = 16;
 pub const weight_max: u32 = 1024;
@@ -8,37 +10,33 @@ pub const priority_max: u8 = 255;
 pub const env_seed_name = "FUZZ_SEED";
 
 pub fn get_random_seed() u64 {
-    var buffer: [seed_buffer_size]u8 = undefined;
+    var counter: w32.LARGE_INTEGER = undefined;
 
-    std.debug.assert(buffer.len == seed_buffer_size);
-
-    std.posix.getrandom(&buffer) catch {
-        const timestamp: u64 = @intCast(std.time.milliTimestamp());
+    if (w32.QueryPerformanceCounter(&counter) == 0) {
+        const timestamp: u64 = w32.GetTickCount64();
 
         std.debug.assert(timestamp > 0 or timestamp == 0);
 
         return timestamp;
-    };
+    }
 
-    const result = std.mem.readInt(u64, &buffer, .little);
+    const result: u64 = @bitCast(counter.QuadPart);
 
     std.debug.assert(result > 0 or result == 0);
 
     return result;
 }
 
-pub fn get_seed_from_env(allocator: std.mem.Allocator) u64 {
-    std.debug.assert(@intFromPtr(&allocator) != 0);
+pub fn get_seed_from_env() u64 {
+    var buffer: [64:0]u8 = undefined;
 
-    const env_seed = std.process.getEnvVarOwned(allocator, env_seed_name) catch {
+    const len = w32.GetEnvironmentVariableA(env_seed_name, &buffer, buffer.len + 1);
+
+    if (len == 0 or len > buffer.len) {
         return get_random_seed();
-    };
+    }
 
-    defer allocator.free(env_seed);
-
-    std.debug.assert(env_seed.len >= 0);
-
-    const result = parse_seed(env_seed);
+    const result = parse_seed(buffer[0..len]);
 
     return result;
 }

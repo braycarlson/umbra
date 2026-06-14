@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const tray = @import("tray");
+const tray = @import("wisp");
 
 const App = tray.App;
 const Event = tray.Event;

@@ -1,5 +1,7 @@
 const std = @import("std");
 
+const w32 = @import("win32").everything;
+
 pub const handler_max: u8 = 32;
 pub const kind_max: u8 = 10;
 
@@ -85,7 +87,7 @@ pub const Event = struct {
         const result = Event{
             .kind = kind,
             .payload = payload,
-            .timestamp = std.time.milliTimestamp(),
+            .timestamp = @intCast(w32.GetTickCount64()),
         };
 
         return result;
