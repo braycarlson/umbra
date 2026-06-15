@@ -20,8 +20,6 @@ pub const System = enum(u8) {
     shield = 1,
 
     pub fn to_resource(self: System) [*:0]align(1) const u16 {
-        std.debug.assert(@intFromEnum(self) <= 1);
-
         const result = switch (self) {
             .application => w32.IDI_APPLICATION,
             .shield => w32.IDI_SHIELD,
@@ -110,8 +108,6 @@ pub const IconInfo = struct {
     mask_bitmap: ?w32.HBITMAP,
 
     pub fn deinit(self: *IconInfo) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (self.mask_bitmap) |bitmap| {
             _ = w32.DeleteObject(bitmap);
             self.mask_bitmap = null;
@@ -155,8 +151,6 @@ pub const Icon = struct {
     }
 
     pub fn copy(self: *const Icon) Error!Icon {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (!self.is_valid()) {
             return Error.InvalidSource;
         }
@@ -178,8 +172,6 @@ pub const Icon = struct {
     }
 
     pub fn deinit(self: *const Icon) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (self.owned and self.is_valid()) {
             const result = w32.DestroyIcon(self.handle) != 0;
 
@@ -190,9 +182,6 @@ pub const Icon = struct {
     }
 
     pub fn draw(self: *const Icon, options: DrawOptions) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(options.hdc) != 0);
-
         if (!self.is_valid()) {
             return Error.InvalidSource;
         }
@@ -221,8 +210,6 @@ pub const Icon = struct {
     }
 
     pub fn get_info(self: *const Icon) Error!IconInfo {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (!self.is_valid()) {
             return Error.InvalidSource;
         }
@@ -245,8 +232,6 @@ pub const Icon = struct {
     }
 
     pub fn get_size(self: *const Icon) ?struct { height: i32, width: i32 } {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         var info = self.get_info() catch return null;
 
         defer info.deinit();
@@ -275,8 +260,6 @@ pub const Icon = struct {
     }
 
     pub fn is_valid(self: *const Icon) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const result = @intFromPtr(self.handle) != 0;
 
         return result;
@@ -284,8 +267,6 @@ pub const Icon = struct {
 };
 
 fn load_from_data(source: Source.DataSource) Error!Icon {
-    std.debug.assert(@intFromPtr(source.info) != 0);
-
     const handle = w32.CreateIconIndirect(@constCast(source.info));
 
     if (handle == null) {
@@ -392,8 +373,6 @@ fn load_from_resource(source: Source.ResourceSource, options: LoadOptions) Error
 }
 
 fn load_from_system(system: System) Error!Icon {
-    std.debug.assert(@intFromEnum(system) <= 1);
-
     const handle = w32.LoadIconW(null, system.to_resource());
 
     if (handle == null) {

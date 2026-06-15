@@ -67,7 +67,6 @@ pub const TrayManager = struct {
             var index: u8 = 0;
 
             while (index < config.tooltip.len) : (index += 1) {
-                std.debug.assert(index < config.tooltip.len);
                 std.debug.assert(index < tooltip_max);
 
                 result.tooltip[index] = config.tooltip[index];
@@ -82,8 +81,6 @@ pub const TrayManager = struct {
     }
 
     pub fn deinit(self: *TrayManager) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         self.destroy();
         self.service = null;
         self.hwnd = null;
@@ -92,19 +89,12 @@ pub const TrayManager = struct {
     }
 
     pub fn bind(self: *TrayManager, service: *Service) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(service) != 0);
-
         self.service = service;
 
         std.debug.assert(self.service != null);
     }
 
     pub fn create(self: *TrayManager, hwnd: w32.HWND, icon: *const Icon) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(hwnd) != 0);
-        std.debug.assert(@intFromPtr(icon) != 0);
-
         self.hwnd = hwnd;
 
         self.tray = Tray.create(.{
@@ -120,8 +110,6 @@ pub const TrayManager = struct {
     }
 
     pub fn destroy(self: *TrayManager) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (self.tray) |tray| {
             tray.destroy() catch {};
             self.tray = null;
@@ -131,13 +119,10 @@ pub const TrayManager = struct {
     }
 
     pub fn get_id(self: *const TrayManager) u32 {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         return self.id;
     }
 
     pub fn get_tooltip(self: *const TrayManager) []const u8 {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.tooltip_len <= tooltip_max);
 
         const result = self.tooltip[0..self.tooltip_len];
@@ -145,17 +130,13 @@ pub const TrayManager = struct {
         return result;
     }
 
-    pub fn handle_message(self: *TrayManager, lparam: w32.LPARAM) ?TrayEvent {
-        std.debug.assert(@intFromPtr(self) != 0);
-
+    pub fn handle_message(lparam: w32.LPARAM) ?TrayEvent {
         const result = TrayEvent.parse(lparam);
 
         return result;
     }
 
     pub fn hide_balloon(self: *TrayManager) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (self.tray == null) {
             return Error.NotBound;
         }
@@ -166,17 +147,12 @@ pub const TrayManager = struct {
     }
 
     pub fn is_created(self: *const TrayManager) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const result = self.tray != null;
 
         return result;
     }
 
     pub fn recreate(self: *TrayManager, icon: *const Icon) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(icon) != 0);
-
         if (self.hwnd == null) {
             return Error.NotBound;
         }
@@ -189,9 +165,6 @@ pub const TrayManager = struct {
     }
 
     pub fn set_icon(self: *TrayManager, icon: *const Icon) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(icon) != 0);
-
         if (self.tray == null) {
             return Error.NotBound;
         }
@@ -202,7 +175,6 @@ pub const TrayManager = struct {
     }
 
     pub fn set_tooltip(self: *TrayManager, tooltip: []const u8) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(tooltip.len < tooltip_max);
 
         if (tooltip.len == 0 or tooltip.len >= tooltip_max) {
@@ -212,7 +184,6 @@ pub const TrayManager = struct {
         var index: u8 = 0;
 
         while (index < tooltip.len) : (index += 1) {
-            std.debug.assert(index < tooltip.len);
             std.debug.assert(index < tooltip_max);
 
             self.tooltip[index] = tooltip[index];
@@ -228,7 +199,6 @@ pub const TrayManager = struct {
     }
 
     pub fn show_balloon(self: *TrayManager, title: []const u8, body: []const u8, icon: BalloonIcon) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(title.len > 0);
         std.debug.assert(body.len > 0);
 
@@ -246,27 +216,18 @@ pub const TrayManager = struct {
     }
 
     pub fn show_balloon_error(self: *TrayManager, title: []const u8, body: []const u8) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         try self.show_balloon(title, body, .err);
     }
 
     pub fn show_balloon_info(self: *TrayManager, title: []const u8, body: []const u8) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         try self.show_balloon(title, body, .info);
     }
 
     pub fn show_balloon_warning(self: *TrayManager, title: []const u8, body: []const u8) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         try self.show_balloon(title, body, .warning);
     }
 
     pub fn show_balloon_with_icon(self: *TrayManager, title: []const u8, body: []const u8, custom_icon: *const Icon) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(custom_icon) != 0);
-
         if (self.tray == null) {
             return Error.NotBound;
         }

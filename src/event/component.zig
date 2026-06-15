@@ -245,8 +245,6 @@ pub const EventBus = struct {
     }
 
     pub fn subscribe(self: *EventBus, handler: Handler) ?Subscription {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (self.count >= handler_max) {
             return null;
         }
@@ -283,8 +281,6 @@ pub const EventBus = struct {
         callback: HandlerFn,
         context: ?*anyopaque,
     ) ?Subscription {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         var handler = Handler.with_filter(callback, kind);
 
         handler.context = context;
@@ -295,8 +291,6 @@ pub const EventBus = struct {
     }
 
     pub fn on_any(self: *EventBus, callback: HandlerFn, context: ?*anyopaque) ?Subscription {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const handler = Handler.with_context(callback, context);
         const result = self.subscribe(handler);
 
@@ -304,8 +298,6 @@ pub const EventBus = struct {
     }
 
     pub fn remove(self: *EventBus, index: u8) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (index >= handler_max) {
             return;
         }
@@ -317,8 +309,6 @@ pub const EventBus = struct {
     }
 
     pub fn set_enabled(self: *EventBus, index: u8, enabled: bool) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (index >= handler_max) {
             return;
         }
@@ -329,8 +319,6 @@ pub const EventBus = struct {
     }
 
     pub fn emit(self: *EventBus, event: *const Event) Response {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (self.dispatching) {
             return .pass;
         }
@@ -387,8 +375,6 @@ pub const EventBus = struct {
     }
 
     pub fn emit_kind(self: *EventBus, kind: Kind) Response {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const event = Event.init(kind, @unionInit(Payload, @tagName(kind), {}));
         const result = self.emit(&event);
 
@@ -396,8 +382,6 @@ pub const EventBus = struct {
     }
 
     pub fn clear(self: *EventBus) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         var i: u8 = 0;
 
         while (i < handler_max) : (i += 1) {
@@ -408,8 +392,6 @@ pub const EventBus = struct {
     }
 
     pub fn handler_count(self: *const EventBus) u8 {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const result = self.count;
 
         return result;

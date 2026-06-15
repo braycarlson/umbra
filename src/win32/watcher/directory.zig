@@ -62,7 +62,6 @@ pub const Directory = struct {
     }
 
     pub fn close(self: *const Directory) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const status = w32.CloseHandle(self.handle);
@@ -72,8 +71,6 @@ pub const Directory = struct {
     }
 
     pub fn is_valid(self: *const Directory) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const result = self.handle != w32.INVALID_HANDLE_VALUE;
 
         return result;

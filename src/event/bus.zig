@@ -16,8 +16,6 @@ pub const Handler = struct {
     priority: u8,
 
     pub fn init(callback: HandlerFn) Handler {
-        std.debug.assert(@intFromPtr(callback) != 0);
-
         const result = Handler{
             .callback = callback,
             .context = null,
@@ -33,8 +31,6 @@ pub const Handler = struct {
     }
 
     pub fn with_context(self: Handler, context: ?*anyopaque) Handler {
-        std.debug.assert(@intFromPtr(self.callback) != 0);
-
         var result = self;
 
         result.context = context;
@@ -45,7 +41,6 @@ pub const Handler = struct {
     }
 
     pub fn with_filter(self: Handler, filter: Kind) Handler {
-        std.debug.assert(@intFromPtr(self.callback) != 0);
         std.debug.assert(filter.is_valid());
 
         var result = self;
@@ -58,8 +53,6 @@ pub const Handler = struct {
     }
 
     pub fn with_priority(self: Handler, priority: u8) Handler {
-        std.debug.assert(@intFromPtr(self.callback) != 0);
-
         var result = self;
 
         result.priority = priority;
@@ -70,9 +63,6 @@ pub const Handler = struct {
     }
 
     pub fn invoke(self: *const Handler, event: *const Event) Response {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(event) != 0);
-
         if (!self.enabled) {
             return .pass;
         }
@@ -85,11 +75,7 @@ pub const Handler = struct {
             }
         }
 
-        std.debug.assert(@intFromPtr(self.callback) != 0);
-
         const result = self.callback(event, self.context);
-
-        std.debug.assert(@intFromEnum(result) <= 2);
 
         return result;
     }
@@ -100,16 +86,12 @@ pub const Subscription = struct {
     index: u8,
 
     pub fn set_enabled(self: *const Subscription, enabled: bool) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(self.bus) != 0);
         std.debug.assert(self.index < types.handler_max);
 
         self.bus.set_enabled(self.index, enabled);
     }
 
     pub fn unsubscribe(self: *const Subscription) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(self.bus) != 0);
         std.debug.assert(self.index < types.handler_max);
 
         self.bus.remove(self.index);
@@ -135,21 +117,15 @@ pub const Bus = struct {
     }
 
     pub fn deinit(self: *Bus) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         self.clear();
 
         std.debug.assert(self.count == 0);
     }
 
     pub fn clear(self: *Bus) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         var index: u8 = 0;
 
         while (index < types.handler_max) : (index += 1) {
-            std.debug.assert(index < types.handler_max);
-
             self.handlers[index] = null;
         }
 
@@ -159,8 +135,6 @@ pub const Bus = struct {
     }
 
     pub fn emit(self: *Bus, event: *const Event) Response {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(event) != 0);
         std.debug.assert(event.kind.is_valid());
 
         if (self.dispatching) {
@@ -184,13 +158,10 @@ pub const Bus = struct {
 
         const result = dispatch_to_handlers(&sorted, sorted_count, event);
 
-        std.debug.assert(@intFromEnum(result) <= 2);
-
         return result;
     }
 
     pub fn emit_kind(self: *Bus, kind: Kind) Response {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(kind.is_valid());
 
         const event = Event.create(kind, @unionInit(types.Payload, @tagName(kind), {}));
@@ -203,15 +174,12 @@ pub const Bus = struct {
     }
 
     pub fn handler_count(self: *const Bus) u8 {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.count <= types.handler_max);
 
         return self.count;
     }
 
     pub fn on(self: *Bus, kind: Kind, callback: HandlerFn, context: ?*anyopaque) ?Subscription {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(callback) != 0);
         std.debug.assert(kind.is_valid());
 
         const handler = Handler.init(callback).with_filter(kind).with_context(context);
@@ -221,9 +189,6 @@ pub const Bus = struct {
     }
 
     pub fn on_any(self: *Bus, callback: HandlerFn, context: ?*anyopaque) ?Subscription {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(callback) != 0);
-
         const handler = Handler.init(callback).with_context(context);
         const result = self.subscribe(handler);
 
@@ -231,7 +196,6 @@ pub const Bus = struct {
     }
 
     pub fn remove(self: *Bus, index: u8) void {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(index < types.handler_max);
 
         if (self.handlers[index] != null) {
@@ -244,7 +208,6 @@ pub const Bus = struct {
     }
 
     pub fn set_enabled(self: *Bus, index: u8, enabled: bool) void {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(index < types.handler_max);
 
         if (self.handlers[index]) |*handler| {
@@ -255,9 +218,6 @@ pub const Bus = struct {
     }
 
     pub fn subscribe(self: *Bus, handler: Handler) ?Subscription {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(handler.callback) != 0);
-
         if (self.count >= types.handler_max) {
             return null;
         }
@@ -285,14 +245,10 @@ pub const Bus = struct {
 };
 
 fn collect_handlers(bus: *Bus, sorted: *[types.handler_max]?*const Handler) u8 {
-    std.debug.assert(@intFromPtr(bus) != 0);
-    std.debug.assert(@intFromPtr(sorted) != 0);
-
     var sorted_count: u8 = 0;
     var index: u8 = 0;
 
     while (index < types.handler_max) : (index += 1) {
-        std.debug.assert(index < types.handler_max);
         std.debug.assert(sorted_count <= types.handler_max);
 
         if (bus.handlers[index]) |*handler| {
@@ -307,8 +263,6 @@ fn collect_handlers(bus: *Bus, sorted: *[types.handler_max]?*const Handler) u8 {
 }
 
 fn dispatch_to_handlers(sorted: *[types.handler_max]?*const Handler, sorted_count: u8, event: *const Event) Response {
-    std.debug.assert(@intFromPtr(sorted) != 0);
-    std.debug.assert(@intFromPtr(event) != 0);
     std.debug.assert(sorted_count <= types.handler_max);
 
     if (sorted_count == 0) {
@@ -318,13 +272,10 @@ fn dispatch_to_handlers(sorted: *[types.handler_max]?*const Handler, sorted_coun
     var index: u8 = 0;
 
     while (index < sorted_count) : (index += 1) {
-        std.debug.assert(index < sorted_count);
         std.debug.assert(index < types.handler_max);
 
         if (sorted[index]) |handler| {
             const response = handler.invoke(event);
-
-            std.debug.assert(@intFromEnum(response) <= 2);
 
             if (response.should_stop()) {
                 return response;
@@ -336,13 +287,9 @@ fn dispatch_to_handlers(sorted: *[types.handler_max]?*const Handler, sorted_coun
 }
 
 fn find_empty_slot(bus: *Bus) ?u8 {
-    std.debug.assert(@intFromPtr(bus) != 0);
-
     var index: u8 = 0;
 
     while (index < types.handler_max) : (index += 1) {
-        std.debug.assert(index < types.handler_max);
-
         if (bus.handlers[index] == null) {
             return index;
         }
@@ -352,7 +299,6 @@ fn find_empty_slot(bus: *Bus) ?u8 {
 }
 
 fn sort_handlers_by_priority(sorted: *[types.handler_max]?*const Handler, sorted_count: u8) void {
-    std.debug.assert(@intFromPtr(sorted) != 0);
     std.debug.assert(sorted_count <= types.handler_max);
 
     if (sorted_count <= 1) {
@@ -362,13 +308,11 @@ fn sort_handlers_by_priority(sorted: *[types.handler_max]?*const Handler, sorted
     var outer_index: u8 = 0;
 
     while (outer_index < sorted_count) : (outer_index += 1) {
-        std.debug.assert(outer_index < sorted_count);
         std.debug.assert(outer_index < types.handler_max);
 
         var inner_index: u8 = outer_index + 1;
 
         while (inner_index < sorted_count) : (inner_index += 1) {
-            std.debug.assert(inner_index < sorted_count);
             std.debug.assert(inner_index < types.handler_max);
 
             const priority_outer = sorted[outer_index].?.priority;

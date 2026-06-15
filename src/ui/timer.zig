@@ -24,25 +24,16 @@ pub const Handle = struct {
     manager: *TimerManager,
 
     pub fn get_tick_count(self: *const Handle) u64 {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(self.manager) != 0);
-
         const result = self.manager.get_tick_count(self.id);
 
         return result;
     }
 
     pub fn reset_tick_count(self: *const Handle) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(self.manager) != 0);
-
         self.manager.reset_tick_count(self.id);
     }
 
     pub fn stop(self: *const Handle) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(self.manager) != 0);
-
         try self.manager.stop(self.id);
     }
 };
@@ -84,34 +75,24 @@ pub const TimerManager = struct {
     }
 
     pub fn deinit(self: *TimerManager) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         self.stop_all();
 
         std.debug.assert(self.count == 0);
     }
 
     pub fn bind(self: *TimerManager, hwnd: w32.HWND) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(hwnd) != 0);
-
         self.hwnd = hwnd;
 
         std.debug.assert(self.hwnd != null);
     }
 
     pub fn bind_service(self: *TimerManager, service: *Service) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(service) != 0);
-
         self.service = service;
 
         std.debug.assert(self.service != null);
     }
 
     pub fn get_tick_count(self: *const TimerManager, id: u32) u64 {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const index = find_index(self, id) orelse return 0;
 
         std.debug.assert(index < timer_max);
@@ -124,8 +105,6 @@ pub const TimerManager = struct {
     }
 
     pub fn handle_tick(self: *TimerManager, timer_id: u32) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const index = find_index(self, timer_id) orelse return;
 
         std.debug.assert(index < timer_max);
@@ -136,16 +115,12 @@ pub const TimerManager = struct {
     }
 
     pub fn is_bound(self: *const TimerManager) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const result = self.hwnd != null;
 
         return result;
     }
 
     pub fn is_running(self: *const TimerManager, id: u32) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const index = find_index(self, id) orelse return false;
 
         std.debug.assert(index < timer_max);
@@ -158,8 +133,6 @@ pub const TimerManager = struct {
     }
 
     pub fn reset_tick_count(self: *TimerManager, id: u32) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const index = find_index(self, id) orelse return;
 
         std.debug.assert(index < timer_max);
@@ -170,7 +143,6 @@ pub const TimerManager = struct {
     }
 
     pub fn start(self: *TimerManager, id: u32, interval_ms: u32) Error!Handle {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(interval_ms > 0);
 
         if (self.hwnd == null) {
@@ -217,8 +189,6 @@ pub const TimerManager = struct {
     }
 
     pub fn stop(self: *TimerManager, id: u32) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const index = find_index(self, id) orelse return Error.NotFound;
 
         std.debug.assert(index < timer_max);
@@ -235,13 +205,9 @@ pub const TimerManager = struct {
     }
 
     pub fn stop_all(self: *TimerManager) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         var index: u8 = 0;
 
         while (index < timer_max) : (index += 1) {
-            std.debug.assert(index < timer_max);
-
             if (self.entries[index]) |*entry| {
                 entry.timer.stop() catch {};
 
@@ -256,13 +222,9 @@ pub const TimerManager = struct {
 };
 
 fn find_empty_slot(manager: *const TimerManager) ?u8 {
-    std.debug.assert(@intFromPtr(manager) != 0);
-
     var index: u8 = 0;
 
     while (index < timer_max) : (index += 1) {
-        std.debug.assert(index < timer_max);
-
         if (manager.entries[index] == null) {
             return index;
         }
@@ -272,13 +234,9 @@ fn find_empty_slot(manager: *const TimerManager) ?u8 {
 }
 
 fn find_index(manager: *const TimerManager, id: u32) ?u8 {
-    std.debug.assert(@intFromPtr(manager) != 0);
-
     var index: u8 = 0;
 
     while (index < timer_max) : (index += 1) {
-        std.debug.assert(index < timer_max);
-
         if (manager.entries[index]) |*entry| {
             if (entry.timer.id == id) {
                 return index;

@@ -185,7 +185,6 @@ pub const Tray = struct {
     id: u32,
 
     pub fn create(options: CreateOptions) Error!Tray {
-        std.debug.assert(@intFromPtr(options.hwnd) != 0);
         std.debug.assert(options.tooltip.len < tooltip_max);
 
         if (options.tooltip.len >= tooltip_max) {
@@ -242,9 +241,6 @@ pub const Tray = struct {
     }
 
     pub fn destroy(self: *const Tray) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(self.hwnd) != 0);
-
         var data = base_data(self.hwnd, self.id);
 
         const status = w32.Shell_NotifyIconW(w32.NIM_DELETE, &data);
@@ -255,9 +251,6 @@ pub const Tray = struct {
     }
 
     pub fn get_rect(self: *const Tray) Error!w32.RECT {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(self.hwnd) != 0);
-
         var identifier: w32.NOTIFYICONIDENTIFIER = undefined;
 
         identifier.cbSize = @sizeOf(w32.NOTIFYICONIDENTIFIER);
@@ -277,9 +270,6 @@ pub const Tray = struct {
     }
 
     pub fn hide_balloon(self: *const Tray) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(self.hwnd) != 0);
-
         var data = base_data(self.hwnd, self.id);
 
         data.uFlags.INFO = 1;
@@ -294,8 +284,6 @@ pub const Tray = struct {
     }
 
     pub fn is_visible(self: *const Tray) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const rect = self.get_rect() catch return false;
         const result = rect.right > rect.left and rect.bottom > rect.top;
 
@@ -303,9 +291,6 @@ pub const Tray = struct {
     }
 
     pub fn modify(self: *const Tray, options: ModifyOptions) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(self.hwnd) != 0);
-
         var data = base_data(self.hwnd, self.id);
 
         if (options.icon) |icon| {
@@ -343,9 +328,6 @@ pub const Tray = struct {
     }
 
     pub fn set_focus(self: *const Tray) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(self.hwnd) != 0);
-
         var data = base_data(self.hwnd, self.id);
 
         const status = w32.Shell_NotifyIconW(w32.NIM_SETFOCUS, &data);
@@ -356,34 +338,24 @@ pub const Tray = struct {
     }
 
     pub fn set_hidden(self: *const Tray, hidden: bool) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         return self.set_state(IconState{ .hidden = hidden });
     }
 
     pub fn set_icon(self: *const Tray, icon: *const icon_mod.Icon) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(icon) != 0);
-
         return self.modify(ModifyOptions{ .icon = icon });
     }
 
     pub fn set_state(self: *const Tray, state: IconState) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         return self.modify(ModifyOptions{ .state = state });
     }
 
     pub fn set_tooltip(self: *const Tray, tooltip: []const u8) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(tooltip.len < tooltip_max);
 
         return self.modify(ModifyOptions{ .tooltip = tooltip });
     }
 
     pub fn show_balloon(self: *const Tray, options: BalloonOptions) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(self.hwnd) != 0);
         std.debug.assert(options.title.len < title_max);
         std.debug.assert(options.body.len < info_max);
 
@@ -442,8 +414,6 @@ pub const Tray = struct {
 };
 
 fn base_data(hwnd: w32.HWND, id: u32) w32.NOTIFYICONDATAW {
-    std.debug.assert(@intFromPtr(hwnd) != 0);
-
     var data = std.mem.zeroes(w32.NOTIFYICONDATAW);
 
     data.cbSize = @sizeOf(w32.NOTIFYICONDATAW);

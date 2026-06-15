@@ -8,9 +8,6 @@ pub const Stage = enum(u8) {
     stopping = 4,
 
     pub fn can_transition_to(self: Stage, target: Stage) bool {
-        std.debug.assert(@intFromEnum(self) <= 4);
-        std.debug.assert(@intFromEnum(target) <= 4);
-
         const result = switch (self) {
             .created => target == .configured,
             .configured => target == .running,
@@ -37,37 +34,24 @@ pub const Lifecycle = struct {
     }
 
     pub fn is_configured(self: *const Lifecycle) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromEnum(self.stage) <= 4);
-
         const result = self.stage == .configured;
 
         return result;
     }
 
     pub fn is_running(self: *const Lifecycle) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromEnum(self.stage) <= 4);
-
         const result = self.stage == .running;
 
         return result;
     }
 
     pub fn is_stopped(self: *const Lifecycle) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromEnum(self.stage) <= 4);
-
         const result = self.stage == .stopped;
 
         return result;
     }
 
     pub fn transition(self: *Lifecycle, target: Stage) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromEnum(self.stage) <= 4);
-        std.debug.assert(@intFromEnum(target) <= 4);
-
         if (!self.stage.can_transition_to(target)) {
             return false;
         }
@@ -77,5 +61,11 @@ pub const Lifecycle = struct {
         std.debug.assert(self.stage == target);
 
         return true;
+    }
+
+    pub fn force_stop(self: *Lifecycle) void {
+        self.stage = .stopped;
+
+        std.debug.assert(self.stage == .stopped);
     }
 };

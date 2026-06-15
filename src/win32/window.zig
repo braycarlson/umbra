@@ -390,13 +390,38 @@ pub const Config = struct {
     y: i32 = cw_usedefault,
 };
 
+fn register_class(config: *const Config, instance: w32.HINSTANCE) Error!void {
+    std.debug.assert(config.name.len > 0);
+
+    var class = std.mem.zeroes(w32.WNDCLASSEXW);
+
+    class.cbSize = @sizeOf(w32.WNDCLASSEXW);
+    class.hbrBackground = config.background;
+    class.hCursor = config.cursor;
+    class.hIcon = config.icon;
+    class.hIconSm = config.icon_small;
+    class.hInstance = instance;
+    class.lpfnWndProc = config.callback;
+    class.lpszClassName = config.name;
+    class.style = @bitCast(config.class_style.to_uint());
+
+    const atom = w32.RegisterClassExW(&class);
+
+    if (atom == 0) {
+        const err = w32.GetLastError();
+
+        if (err != w32.WIN32_ERROR.ERROR_CLASS_ALREADY_EXISTS) {
+            return Error.RegistrationFailed;
+        }
+    }
+}
+
 pub const Window = struct {
     handle: w32.HWND,
     instance: w32.HINSTANCE,
     msg_taskbar: u32,
 
     pub fn create(config: *const Config) Error!Window {
-        std.debug.assert(@intFromPtr(config) != 0);
         std.debug.assert(config.name.len > 0);
         std.debug.assert(config.name.len < name_max);
 
@@ -408,27 +433,7 @@ pub const Window = struct {
 
         std.debug.assert(@intFromPtr(instance) != 0);
 
-        var class = std.mem.zeroes(w32.WNDCLASSEXW);
-
-        class.cbSize = @sizeOf(w32.WNDCLASSEXW);
-        class.hbrBackground = config.background;
-        class.hCursor = config.cursor;
-        class.hIcon = config.icon;
-        class.hIconSm = config.icon_small;
-        class.hInstance = instance;
-        class.lpfnWndProc = config.callback;
-        class.lpszClassName = config.name;
-        class.style = @bitCast(config.class_style.to_uint());
-
-        const atom = w32.RegisterClassExW(&class);
-
-        if (atom == 0) {
-            const err = w32.GetLastError();
-
-            if (err != w32.WIN32_ERROR.ERROR_CLASS_ALREADY_EXISTS) {
-                return Error.RegistrationFailed;
-            }
-        }
+        try register_class(config, instance);
 
         const window_title = config.window_name orelse config.name;
 
@@ -477,8 +482,6 @@ pub const Window = struct {
     }
 
     pub fn begin_paint(self: *const Window, paint_struct: *w32.PAINTSTRUCT) ?w32.HDC {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(paint_struct) != 0);
         std.debug.assert(self.is_valid());
 
         const result = w32.BeginPaint(self.handle, paint_struct);
@@ -487,8 +490,6 @@ pub const Window = struct {
     }
 
     pub fn client_to_screen(self: *const Window, point: *w32.POINT) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(point) != 0);
         std.debug.assert(self.is_valid());
 
         const result = w32.ClientToScreen(self.handle, point) != 0;
@@ -497,8 +498,6 @@ pub const Window = struct {
     }
 
     pub fn context(comptime T: type, hwnd: w32.HWND) ?*T {
-        std.debug.assert(@intFromPtr(hwnd) != 0);
-
         const address: i64 = w32.GetWindowLongPtrW(hwnd, w32.GWLP_USERDATA);
 
         if (address == 0) {
@@ -511,7 +510,6 @@ pub const Window = struct {
     }
 
     pub fn destroy(self: *const Window) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const result = w32.DestroyWindow(self.handle) != 0;
@@ -520,7 +518,6 @@ pub const Window = struct {
     }
 
     pub fn enable(self: *const Window, enabled: bool) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const result = w32.EnableWindow(self.handle, if (enabled) w32.TRUE else w32.FALSE) != 0;
@@ -529,8 +526,6 @@ pub const Window = struct {
     }
 
     pub fn end_paint(self: *const Window, paint_struct: *const w32.PAINTSTRUCT) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(paint_struct) != 0);
         std.debug.assert(self.is_valid());
 
         const result = w32.EndPaint(self.handle, paint_struct) != 0;
@@ -539,7 +534,6 @@ pub const Window = struct {
     }
 
     pub fn get_client_rect(self: *const Window) ?w32.RECT {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         var rect: w32.RECT = undefined;
@@ -552,7 +546,6 @@ pub const Window = struct {
     }
 
     pub fn get_dc(self: *const Window) ?w32.HDC {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const result = w32.GetDC(self.handle);
@@ -561,7 +554,6 @@ pub const Window = struct {
     }
 
     pub fn get_ex_style(self: *const Window) u32 {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const result: u32 = @bitCast(@as(i32, @truncate(w32.GetWindowLongPtrW(self.handle, w32.GWL_EXSTYLE))));
@@ -570,7 +562,6 @@ pub const Window = struct {
     }
 
     pub fn get_parent(self: *const Window) ?w32.HWND {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const result = w32.GetParent(self.handle);
@@ -579,7 +570,6 @@ pub const Window = struct {
     }
 
     pub fn get_rect(self: *const Window) ?w32.RECT {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         var rect: w32.RECT = undefined;
@@ -592,7 +582,6 @@ pub const Window = struct {
     }
 
     pub fn get_style(self: *const Window) u32 {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const result: u32 = @bitCast(@as(i32, @truncate(w32.GetWindowLongPtrW(self.handle, w32.GWL_STYLE))));
@@ -601,7 +590,6 @@ pub const Window = struct {
     }
 
     pub fn get_text(self: *const Window, buffer: []u16) i32 {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(buffer.len > 0);
         std.debug.assert(self.is_valid());
 
@@ -611,7 +599,6 @@ pub const Window = struct {
     }
 
     pub fn get_text_length(self: *const Window) i32 {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const result = w32.GetWindowTextLengthW(self.handle);
@@ -620,7 +607,6 @@ pub const Window = struct {
     }
 
     pub fn invalidate(self: *const Window, erase: bool) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const result = w32.InvalidateRect(self.handle, null, if (erase) w32.TRUE else w32.FALSE) != 0;
@@ -629,8 +615,6 @@ pub const Window = struct {
     }
 
     pub fn invalidate_rect(self: *const Window, rect: *const w32.RECT, erase: bool) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(rect) != 0);
         std.debug.assert(self.is_valid());
 
         const result = w32.InvalidateRect(self.handle, rect, if (erase) w32.TRUE else w32.FALSE) != 0;
@@ -639,7 +623,6 @@ pub const Window = struct {
     }
 
     pub fn is_enabled(self: *const Window) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const result = w32.IsWindowEnabled(self.handle) != 0;
@@ -648,7 +631,6 @@ pub const Window = struct {
     }
 
     pub fn is_maximized(self: *const Window) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const result = w32.IsZoomed(self.handle) != 0;
@@ -657,7 +639,6 @@ pub const Window = struct {
     }
 
     pub fn is_minimized(self: *const Window) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const result = w32.IsIconic(self.handle) != 0;
@@ -666,15 +647,12 @@ pub const Window = struct {
     }
 
     pub fn is_valid(self: *const Window) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const result = w32.IsWindow(self.handle) != 0;
 
         return result;
     }
 
     pub fn is_visible(self: *const Window) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const result = w32.IsWindowVisible(self.handle) != 0;
@@ -683,7 +661,6 @@ pub const Window = struct {
     }
 
     pub fn kill_timer(self: *const Window, id: u64) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const result = w32.KillTimer(self.handle, id) != 0;
@@ -692,7 +669,6 @@ pub const Window = struct {
     }
 
     pub fn move(self: *const Window, x: i32, y: i32) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const result = self.set_pos(x, y, 0, 0, SetPosFlags{ .no_size = true, .no_zorder = true });
@@ -701,7 +677,6 @@ pub const Window = struct {
     }
 
     pub fn post(self: *const Window, message: u32, wparam: w32.WPARAM, lparam: w32.LPARAM) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const result = w32.PostMessageW(self.handle, message, wparam, lparam) != 0;
@@ -716,8 +691,6 @@ pub const Window = struct {
     }
 
     pub fn release_dc(self: *const Window, hdc: w32.HDC) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(hdc) != 0);
         std.debug.assert(self.is_valid());
 
         const result = w32.ReleaseDC(self.handle, hdc) != 0;
@@ -726,7 +699,6 @@ pub const Window = struct {
     }
 
     pub fn resize(self: *const Window, width: i32, height: i32) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const result = self.set_pos(0, 0, width, height, SetPosFlags{ .no_move = true, .no_zorder = true });
@@ -735,8 +707,6 @@ pub const Window = struct {
     }
 
     pub fn screen_to_client(self: *const Window, point: *w32.POINT) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(point) != 0);
         std.debug.assert(self.is_valid());
 
         const result = w32.ScreenToClient(self.handle, point) != 0;
@@ -745,7 +715,6 @@ pub const Window = struct {
     }
 
     pub fn send(self: *const Window, message: u32, wparam: w32.WPARAM, lparam: w32.LPARAM) w32.LRESULT {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const result = w32.SendMessageW(self.handle, message, wparam, lparam);
@@ -754,7 +723,6 @@ pub const Window = struct {
     }
 
     pub fn set_capture(self: *const Window) ?w32.HWND {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const result = w32.SetCapture(self.handle);
@@ -763,22 +731,18 @@ pub const Window = struct {
     }
 
     pub fn set_context(self: *const Window, context_ptr: *anyopaque) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(context_ptr) != 0);
         std.debug.assert(self.is_valid());
 
         _ = w32.SetWindowLongPtrW(self.handle, w32.GWLP_USERDATA, @bitCast(@intFromPtr(context_ptr)));
     }
 
     pub fn set_ex_style(self: *const Window, style: u32) void {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         _ = w32.SetWindowLongPtrW(self.handle, w32.GWL_EXSTYLE, @as(i64, @bitCast(@as(i64, @intCast(style)))));
     }
 
     pub fn set_focus(self: *const Window) ?w32.HWND {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const result = w32.SetFocus(self.handle);
@@ -787,7 +751,6 @@ pub const Window = struct {
     }
 
     pub fn set_foreground(self: *const Window) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const result = w32.SetForegroundWindow(self.handle) != 0;
@@ -796,7 +759,6 @@ pub const Window = struct {
     }
 
     pub fn set_parent(self: *const Window, parent: ?w32.HWND) ?w32.HWND {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const result = w32.SetParent(self.handle, parent);
@@ -805,7 +767,6 @@ pub const Window = struct {
     }
 
     pub fn set_pos(self: *const Window, x: i32, y: i32, width: i32, height: i32, flags: SetPosFlags) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const result = w32.SetWindowPos(self.handle, null, x, y, width, height, @bitCast(flags.to_uint())) != 0;
@@ -814,14 +775,12 @@ pub const Window = struct {
     }
 
     pub fn set_style(self: *const Window, style: u32) void {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         _ = w32.SetWindowLongPtrW(self.handle, w32.GWL_STYLE, @as(i64, @bitCast(@as(i64, @intCast(style)))));
     }
 
     pub fn set_text(self: *const Window, text_content: []const u8) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(text_content.len < name_max);
         std.debug.assert(self.is_valid());
 
@@ -837,7 +796,6 @@ pub const Window = struct {
     }
 
     pub fn set_timer(self: *const Window, id: u64, interval_ms: u32) u64 {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(interval_ms > 0);
         std.debug.assert(self.is_valid());
 
@@ -847,7 +805,6 @@ pub const Window = struct {
     }
 
     pub fn set_topmost(self: *const Window, topmost: bool) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const insert: ?w32.HWND = if (topmost)
@@ -861,7 +818,6 @@ pub const Window = struct {
     }
 
     pub fn show(self: *const Window, command: ShowCommand) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const result = w32.ShowWindow(self.handle, @intFromEnum(command)) != 0;
@@ -870,7 +826,6 @@ pub const Window = struct {
     }
 
     pub fn update(self: *const Window) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const result = w32.UpdateWindow(self.handle) != 0;
@@ -896,8 +851,6 @@ pub const Loop = struct {
         const process_iteration_max: u32 = 10000;
 
         while (iteration < process_iteration_max) : (iteration += 1) {
-            std.debug.assert(iteration < process_iteration_max);
-
             const message = peek() orelse break;
 
             if (message.message == w32.WM_QUIT) {
@@ -926,8 +879,6 @@ pub const Loop = struct {
         var iteration: u64 = 0;
 
         while (iteration < iteration_max) : (iteration += 1) {
-            std.debug.assert(iteration < iteration_max);
-
             const status = w32.GetMessageW(&message, null, 0, 0);
 
             if (status <= 0) {

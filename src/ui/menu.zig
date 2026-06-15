@@ -115,8 +115,6 @@ pub const Item = struct {
     }
 
     pub fn get_group(self: *const Item) ?[]const u8 {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (self.group_len == 0) {
             return null;
         }
@@ -129,7 +127,6 @@ pub const Item = struct {
     }
 
     pub fn get_label(self: *const Item) []const u8 {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.label_len <= label_max);
 
         const result = self.label[0..self.label_len];
@@ -138,8 +135,6 @@ pub const Item = struct {
     }
 
     pub fn is_in_group(self: *const Item, group_name: []const u8) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (self.group_len == 0 or group_name.len != self.group_len) {
             return false;
         }
@@ -150,8 +145,6 @@ pub const Item = struct {
     }
 
     pub fn set_group(self: *Item, group_name: []const u8) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (group_name.len == 0 or group_name.len >= group_max) {
             return;
         }
@@ -159,7 +152,6 @@ pub const Item = struct {
         var index: u8 = 0;
 
         while (index < group_name.len) : (index += 1) {
-            std.debug.assert(index < group_name.len);
             std.debug.assert(index < group_max);
 
             self.group[index] = group_name[index];
@@ -171,8 +163,6 @@ pub const Item = struct {
     }
 
     pub fn set_label(self: *Item, label: []const u8) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (label.len == 0 or label.len >= label_max) {
             return;
         }
@@ -180,7 +170,6 @@ pub const Item = struct {
         var index: u16 = 0;
 
         while (index < label.len) : (index += 1) {
-            std.debug.assert(index < label.len);
             std.debug.assert(index < label_max);
 
             self.label[index] = label[index];
@@ -215,8 +204,6 @@ pub const MenuManager = struct {
     }
 
     pub fn deinit(self: *MenuManager) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (self.menu) |menu| {
             _ = menu.destroy();
             self.menu = null;
@@ -228,8 +215,6 @@ pub const MenuManager = struct {
     }
 
     pub fn add(self: *MenuManager, item: Item) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (self.count >= item_max) {
             return Error.CapacityExceeded;
         }
@@ -242,14 +227,10 @@ pub const MenuManager = struct {
     }
 
     pub fn add_action(self: *MenuManager, id: u32, label: []const u8) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         try self.add(Item.action(id, label));
     }
 
     pub fn add_radio(self: *MenuManager, id: u32, label: []const u8, group_name: []const u8, initial: bool) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         try self.add(Item.radio(id, label, group_name, initial));
 
         if (initial) {
@@ -258,29 +239,20 @@ pub const MenuManager = struct {
     }
 
     pub fn add_separator(self: *MenuManager) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         try self.add(Item.separator());
     }
 
     pub fn add_toggle(self: *MenuManager, id: u32, label: []const u8, initial: bool) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         try self.add(Item.toggle(id, label, initial));
     }
 
     pub fn bind(self: *MenuManager, service: *Service) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(service) != 0);
-
         self.service = service;
 
         std.debug.assert(self.service != null);
     }
 
     pub fn build(self: *MenuManager) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (!self.dirty and self.menu != null) {
             return;
         }
@@ -297,7 +269,6 @@ pub const MenuManager = struct {
         var index: u8 = 0;
 
         while (index < self.count) : (index += 1) {
-            std.debug.assert(index < self.count);
             std.debug.assert(index < item_max);
 
             if (self.items[index]) |*item| {
@@ -344,12 +315,9 @@ pub const MenuManager = struct {
     }
 
     pub fn clear(self: *MenuManager) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         var index: u8 = 0;
 
         while (index < self.count) : (index += 1) {
-            std.debug.assert(index < self.count);
             std.debug.assert(index < item_max);
 
             self.items[index] = null;
@@ -362,12 +330,9 @@ pub const MenuManager = struct {
     }
 
     pub fn get_item(self: *const MenuManager, id: u32) ?*const Item {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         var index: u8 = 0;
 
         while (index < self.count) : (index += 1) {
-            std.debug.assert(index < self.count);
             std.debug.assert(index < item_max);
 
             if (self.items[index]) |*item| {
@@ -381,12 +346,9 @@ pub const MenuManager = struct {
     }
 
     pub fn get_radio_selection(self: *const MenuManager, group_name: []const u8) ?u32 {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         var index: u8 = 0;
 
         while (index < self.count) : (index += 1) {
-            std.debug.assert(index < self.count);
             std.debug.assert(index < item_max);
 
             if (self.items[index]) |*item| {
@@ -410,30 +372,22 @@ pub const MenuManager = struct {
     }
 
     pub fn is_checked(self: *const MenuManager, id: u32) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const item = self.get_item(id) orelse return false;
 
         return item.checked;
     }
 
     pub fn is_empty(self: *const MenuManager) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const result = self.count == 0;
 
         return result;
     }
 
     pub fn mark_dirty(self: *MenuManager) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         self.dirty = true;
     }
 
     pub fn set_checked(self: *MenuManager, id: u32, checked: bool) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const item = get_item_mut(self, id) orelse return Error.NotFound;
 
         if (item.kind == .radio and checked) {
@@ -448,8 +402,6 @@ pub const MenuManager = struct {
     }
 
     pub fn set_enabled(self: *MenuManager, id: u32, enabled: bool) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const item = get_item_mut(self, id) orelse return Error.NotFound;
 
         item.enabled = enabled;
@@ -457,7 +409,6 @@ pub const MenuManager = struct {
     }
 
     pub fn set_label(self: *MenuManager, id: u32, label: []const u8) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(label.len > 0);
 
         const item = get_item_mut(self, id) orelse return Error.NotFound;
@@ -467,8 +418,6 @@ pub const MenuManager = struct {
     }
 
     pub fn set_visible(self: *MenuManager, id: u32, visible: bool) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const item = get_item_mut(self, id) orelse return Error.NotFound;
 
         item.visible = visible;
@@ -476,9 +425,6 @@ pub const MenuManager = struct {
     }
 
     pub fn show(self: *MenuManager, hwnd: w32.HWND) ?u32 {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(hwnd) != 0);
-
         self.build() catch return null;
 
         if (self.menu == null) {
@@ -499,8 +445,6 @@ pub const MenuManager = struct {
     }
 
     pub fn toggle_item(self: *MenuManager, id: u32) Error!bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const item = get_item_mut(self, id) orelse return Error.NotFound;
 
         if (item.kind == .toggle) {
@@ -524,12 +468,9 @@ pub const MenuManager = struct {
 };
 
 fn get_item_mut(manager: *MenuManager, id: u32) ?*Item {
-    std.debug.assert(@intFromPtr(manager) != 0);
-
     var index: u8 = 0;
 
     while (index < manager.count) : (index += 1) {
-        std.debug.assert(index < manager.count);
         std.debug.assert(index < item_max);
 
         if (manager.items[index]) |*item| {
@@ -543,13 +484,11 @@ fn get_item_mut(manager: *MenuManager, id: u32) ?*Item {
 }
 
 fn select_radio(manager: *MenuManager, group_name: []const u8, selected_id: u32) void {
-    std.debug.assert(@intFromPtr(manager) != 0);
     std.debug.assert(group_name.len > 0);
 
     var index: u8 = 0;
 
     while (index < manager.count) : (index += 1) {
-        std.debug.assert(index < manager.count);
         std.debug.assert(index < item_max);
 
         if (manager.items[index]) |*item| {

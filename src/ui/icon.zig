@@ -27,8 +27,6 @@ pub const Source = union(enum) {
     system: win32.IconSystem,
 
     pub fn to_load_options(self: Source, instance: w32.HINSTANCE) win32.IconLoadOptions {
-        std.debug.assert(@intFromPtr(instance) != 0);
-
         const result = switch (self) {
             .resource => |id| win32.IconLoadOptions{
                 .source = .{ .resource = .{ .id = id, .instance = instance } },
@@ -63,7 +61,6 @@ pub const Entry = struct {
             var index: u8 = 0;
 
             while (index < name.len) : (index += 1) {
-                std.debug.assert(index < name.len);
                 std.debug.assert(index < name_max);
 
                 result.name[index] = name[index];
@@ -78,8 +75,6 @@ pub const Entry = struct {
     }
 
     pub fn deinit(self: *Entry) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (self.icon) |*icon_ptr| {
             _ = icon_ptr.deinit();
             self.icon = null;
@@ -89,7 +84,6 @@ pub const Entry = struct {
     }
 
     pub fn get_name(self: *const Entry) []const u8 {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.name_len <= name_max);
 
         const result = self.name[0..self.name_len];
@@ -98,8 +92,6 @@ pub const Entry = struct {
     }
 
     pub fn matches(self: *const Entry, target: []const u8) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (target.len != self.name_len) {
             return false;
         }
@@ -133,13 +125,9 @@ pub const IconManager = struct {
     }
 
     pub fn deinit(self: *IconManager) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         var index: u8 = 0;
 
         while (index < icon_max) : (index += 1) {
-            std.debug.assert(index < icon_max);
-
             if (self.entries[index]) |*entry| {
                 entry.deinit();
                 self.entries[index] = null;
@@ -153,8 +141,6 @@ pub const IconManager = struct {
     }
 
     pub fn add(self: *IconManager, name: []const u8, source: Source) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (self.count >= icon_max) {
             return Error.CapacityExceeded;
         }
@@ -182,29 +168,22 @@ pub const IconManager = struct {
     }
 
     pub fn add_resource(self: *IconManager, name: []const u8, id: u32) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(id > 0);
 
         try self.add(name, .{ .resource = id });
     }
 
     pub fn add_system(self: *IconManager, name: []const u8, system_icon: win32.IconSystem) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         try self.add(name, .{ .system = system_icon });
     }
 
     pub fn bind(self: *IconManager, service: *Service) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(service) != 0);
-
         self.service = service;
 
         std.debug.assert(self.service != null);
     }
 
     pub fn get(self: *const IconManager, name: []const u8) ?*const Icon {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(name.len > 0);
 
         const index = find_index(self, name) orelse return null;
@@ -221,7 +200,6 @@ pub const IconManager = struct {
     }
 
     pub fn get_current(self: *const IconManager) ?*const Icon {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.current < icon_max);
 
         if (self.entries[self.current]) |*entry| {
@@ -234,7 +212,6 @@ pub const IconManager = struct {
     }
 
     pub fn get_current_name(self: *const IconManager) ?[]const u8 {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.current < icon_max);
 
         if (self.entries[self.current]) |*entry| {
@@ -245,23 +222,16 @@ pub const IconManager = struct {
     }
 
     pub fn is_empty(self: *const IconManager) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const result = self.count == 0;
 
         return result;
     }
 
     pub fn is_loaded(self: *const IconManager) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         return self.loaded;
     }
 
     pub fn load(self: *IconManager, instance: w32.HINSTANCE) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(instance) != 0);
-
         if (self.count == 0) {
             return false;
         }
@@ -270,8 +240,6 @@ pub const IconManager = struct {
         var index: u8 = 0;
 
         while (index < icon_max) : (index += 1) {
-            std.debug.assert(index < icon_max);
-
             if (self.entries[index]) |*entry| {
                 if (entry.icon == null) {
                     const options = entry.source.to_load_options(instance);
@@ -291,7 +259,6 @@ pub const IconManager = struct {
     }
 
     pub fn set_current(self: *IconManager, name: []const u8) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(name.len > 0);
 
         const index = find_index(self, name) orelse return Error.NotFound;
@@ -312,13 +279,9 @@ pub const IconManager = struct {
 };
 
 fn find_empty_slot(manager: *const IconManager) ?u8 {
-    std.debug.assert(@intFromPtr(manager) != 0);
-
     var index: u8 = 0;
 
     while (index < icon_max) : (index += 1) {
-        std.debug.assert(index < icon_max);
-
         if (manager.entries[index] == null) {
             return index;
         }
@@ -328,13 +291,9 @@ fn find_empty_slot(manager: *const IconManager) ?u8 {
 }
 
 fn find_index(manager: *const IconManager, name: []const u8) ?u8 {
-    std.debug.assert(@intFromPtr(manager) != 0);
-
     var index: u8 = 0;
 
     while (index < icon_max) : (index += 1) {
-        std.debug.assert(index < icon_max);
-
         if (manager.entries[index]) |*entry| {
             if (entry.matches(name)) {
                 return index;

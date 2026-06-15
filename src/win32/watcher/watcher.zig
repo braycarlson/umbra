@@ -19,8 +19,7 @@ pub const Error = path_mod.Error || directory_mod.Error || signal_mod.Error || e
 };
 
 const iteration_loop_max: u32 = 0xFFFFFFFF;
-const error_delay_ms: u64 = 100;
-const ns_delay_error: u64 = error_delay_ms * std.time.ns_per_ms;
+const delay_error_ms: u64 = 100;
 
 pub const Watcher = struct {
     callback: ?Callback = null,
@@ -40,24 +39,18 @@ pub const Watcher = struct {
     }
 
     pub fn deinit(self: *Watcher) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         self.stop();
 
         std.debug.assert(!self.running.load(.acquire));
     }
 
     pub fn is_running(self: *const Watcher) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const result = self.running.load(.acquire);
 
         return result;
     }
 
     pub fn stop(self: *Watcher) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (!self.running.load(.acquire)) {
             return;
         }
@@ -81,9 +74,6 @@ pub const Watcher = struct {
     }
 
     pub fn watch(self: *Watcher, input: []const u8, callback: Callback) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(callback) != 0);
-
         if (self.running.load(.acquire)) {
             return;
         }
@@ -114,8 +104,6 @@ pub const Watcher = struct {
 };
 
 fn deinit_directory(watcher: *Watcher) void {
-    std.debug.assert(@intFromPtr(watcher) != 0);
-
     if (watcher.directory) |dir| {
         _ = dir.close();
         watcher.directory = null;
@@ -125,8 +113,6 @@ fn deinit_directory(watcher: *Watcher) void {
 }
 
 fn destroy_signal(watcher: *Watcher) void {
-    std.debug.assert(@intFromPtr(watcher) != 0);
-
     if (watcher.signal_stop) |signal| {
         _ = signal.destroy();
         watcher.signal_stop = null;
@@ -136,9 +122,11 @@ fn destroy_signal(watcher: *Watcher) void {
 }
 
 fn loop(watcher: *Watcher) void {
-    std.debug.assert(@intFromPtr(watcher) != 0);
+    const signal_io = Signal.create() catch {
+        watcher.running.store(false, .release);
 
-    const signal_io = Signal.create() catch return;
+        return;
+    };
 
     defer _ = signal_io.destroy();
 
@@ -150,8 +138,6 @@ fn loop(watcher: *Watcher) void {
     var iteration: u32 = 0;
 
     while (iteration < iteration_loop_max) : (iteration += 1) {
-        std.debug.assert(iteration < iteration_loop_max);
-
         if (!watcher.running.load(.acquire)) {
             break;
         }
@@ -171,7 +157,7 @@ fn loop(watcher: *Watcher) void {
         switch (result) {
             .stopped => break,
             .failed => {
-                w32.Sleep(@intCast(error_delay_ms));
+                w32.Sleep(@intCast(delay_error_ms));
 
                 continue;
             },

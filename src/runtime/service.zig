@@ -12,24 +12,19 @@ pub const Service = struct {
     instance: w32.HINSTANCE,
 
     pub fn init(event_bus: *Bus) Service {
-        std.debug.assert(@intFromPtr(event_bus) != 0);
-
         const result = Service{
             .bus = event_bus,
             .hwnd = null,
-            .instance = undefined,
+            .instance = @ptrCast(w32.GetModuleHandleW(null)),
         };
 
+        std.debug.assert(@intFromPtr(result.instance) != 0);
         std.debug.assert(result.hwnd == null);
 
         return result;
     }
 
     pub fn bind_window(self: *Service, hwnd: w32.HWND, instance: w32.HINSTANCE) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(hwnd) != 0);
-        std.debug.assert(@intFromPtr(instance) != 0);
-
         self.hwnd = hwnd;
         self.instance = instance;
 
@@ -37,8 +32,6 @@ pub const Service = struct {
     }
 
     pub fn is_bound(self: *const Service) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const result = self.hwnd != null;
 
         return result;

@@ -36,7 +36,7 @@ pub const WindowManager = struct {
         std.debug.assert(config.name.len < name_max);
 
         var result = WindowManager{
-            .instance = undefined,
+            .instance = @ptrCast(w32.GetModuleHandleW(null)),
             .message_context = null,
             .name = [_]u8{0} ** name_max,
             .name_len = 0,
@@ -50,7 +50,6 @@ pub const WindowManager = struct {
             var index: u8 = 0;
 
             while (index < config.name.len) : (index += 1) {
-                std.debug.assert(index < config.name.len);
                 std.debug.assert(index < name_max);
 
                 result.name[index] = config.name[index];
@@ -65,38 +64,28 @@ pub const WindowManager = struct {
             }
         }
 
+        std.debug.assert(@intFromPtr(result.instance) != 0);
         std.debug.assert(result.window == null);
 
         return result;
     }
 
     pub fn deinit(self: *WindowManager) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         self.destroy();
 
         std.debug.assert(self.window == null);
     }
 
     pub fn bind(self: *WindowManager, service: *Service) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(service) != 0);
-
         self.service = service;
 
         std.debug.assert(self.service != null);
     }
 
     pub fn create(self: *WindowManager) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (self.name_len == 0) {
             return Error.InvalidName;
         }
-
-        self.instance = @ptrCast(w32.GetModuleHandleW(null));
-
-        std.debug.assert(@intFromPtr(self.instance) != 0);
 
         const name_pointer: [*:0]const u16 = @ptrCast(&self.name_wide);
         const name_slice_len = std.mem.indexOfScalar(u16, &self.name_wide, 0) orelse 0;
@@ -118,8 +107,6 @@ pub const WindowManager = struct {
     }
 
     pub fn destroy(self: *WindowManager) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (self.window) |window| {
             _ = window.destroy();
             self.window = null;
@@ -129,8 +116,6 @@ pub const WindowManager = struct {
     }
 
     pub fn get_handle(self: *const WindowManager) ?w32.HWND {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (self.window) |window| {
             return window.handle;
         }
@@ -139,14 +124,10 @@ pub const WindowManager = struct {
     }
 
     pub fn get_instance(self: *const WindowManager) w32.HINSTANCE {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         return self.instance;
     }
 
     pub fn get_taskbar_message(self: *const WindowManager) ?u32 {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (self.window) |window| {
             return window.msg_taskbar;
         }
@@ -155,9 +136,6 @@ pub const WindowManager = struct {
     }
 
     pub fn handle_message(self: *WindowManager, hwnd: w32.HWND, message: u32, wparam: w32.WPARAM, lparam: w32.LPARAM) w32.LRESULT {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(hwnd) != 0);
-
         if (self.on_message) |callback| {
             const result = callback(hwnd, message, wparam, lparam, self.message_context);
 
@@ -172,17 +150,12 @@ pub const WindowManager = struct {
     }
 
     pub fn is_created(self: *const WindowManager) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const result = self.window != null;
 
         return result;
     }
 
     pub fn set_message_callback(self: *WindowManager, callback: MessageCallback, context: ?*anyopaque) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(callback) != 0);
-
         self.on_message = callback;
         self.message_context = context;
 
@@ -191,8 +164,6 @@ pub const WindowManager = struct {
 };
 
 fn window_callback(hwnd: w32.HWND, message: u32, wparam: w32.WPARAM, lparam: w32.LPARAM) callconv(.c) w32.LRESULT {
-    std.debug.assert(@intFromPtr(hwnd) != 0);
-
     const manager = Window.context(WindowManager, hwnd);
 
     if (manager) |m| {

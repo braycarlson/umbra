@@ -41,7 +41,7 @@ test "IconBuilder.done returns manager pointer" {
     var manager = IconManager.init();
     defer manager.deinit();
 
-    const result = IconBuilder.init(&manager).done();
+    const result = try IconBuilder.init(&manager).done();
 
     try testing.expectEqual(&manager, result);
 }
@@ -50,7 +50,7 @@ test "IconBuilder chaining works" {
     var manager = IconManager.init();
     defer manager.deinit();
 
-    _ = IconBuilder.init(&manager)
+    _ = try IconBuilder.init(&manager)
         .resource("icon1", 100)
         .resource("icon2", 101)
         .system("app", wisp.IconSystem.application)
@@ -128,7 +128,7 @@ test "MenuBuilder.done returns manager pointer" {
     var manager = MenuManager.init();
     defer manager.deinit();
 
-    const result = MenuBuilder.init(&manager).done();
+    const result = try MenuBuilder.init(&manager).done();
 
     try testing.expectEqual(&manager, result);
 }
@@ -137,7 +137,7 @@ test "MenuBuilder chaining works" {
     var manager = MenuManager.init();
     defer manager.deinit();
 
-    _ = MenuBuilder.init(&manager)
+    _ = try MenuBuilder.init(&manager)
         .action(1, "Action 1")
         .action(2, "Action 2")
         .separator()
@@ -154,7 +154,7 @@ test "MenuBuilder radio group selection" {
     var manager = MenuManager.init();
     defer manager.deinit();
 
-    _ = MenuBuilder.init(&manager)
+    _ = try MenuBuilder.init(&manager)
         .radio(1, "Option 1", "group", false)
         .radio(2, "Option 2", "group", true)
         .radio(3, "Option 3", "group", false)
@@ -165,15 +165,16 @@ test "MenuBuilder radio group selection" {
     try testing.expect(!manager.is_checked(3));
 }
 
-test "IconBuilder handles duplicate names gracefully" {
+test "IconBuilder surfaces duplicate name error" {
     var manager = IconManager.init();
     defer manager.deinit();
 
-    _ = IconBuilder.init(&manager)
+    const result = IconBuilder.init(&manager)
         .resource("icon", 100)
         .resource("icon", 101)
         .done();
 
+    try testing.expectError(error.DuplicateName, result);
     try testing.expectEqual(@as(u8, 1), manager.count);
 }
 
@@ -181,7 +182,7 @@ test "MenuBuilder complex menu structure" {
     var manager = MenuManager.init();
     defer manager.deinit();
 
-    _ = MenuBuilder.init(&manager)
+    _ = try MenuBuilder.init(&manager)
         .action(100, "Open")
         .action(101, "Save")
         .separator()

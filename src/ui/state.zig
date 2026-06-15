@@ -50,8 +50,6 @@ pub const StateManager = struct {
     }
 
     pub fn deinit(self: *StateManager) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         self.service = null;
         self.current_len = 0;
         self.previous_len = 0;
@@ -60,17 +58,12 @@ pub const StateManager = struct {
     }
 
     pub fn bind(self: *StateManager, service: *Service) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(service) != 0);
-
         self.service = service;
 
         std.debug.assert(self.service != null);
     }
 
     pub fn clear_history(self: *StateManager) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         self.history_count = 0;
         self.history_index = 0;
 
@@ -79,8 +72,6 @@ pub const StateManager = struct {
     }
 
     pub fn equals(self: *const StateManager, target: []const u8) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (target.len != self.current_len) {
             return false;
         }
@@ -91,7 +82,6 @@ pub const StateManager = struct {
     }
 
     pub fn get(self: *const StateManager) []const u8 {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.current_len <= state_max);
 
         const result = self.current[0..self.current_len];
@@ -100,7 +90,6 @@ pub const StateManager = struct {
     }
 
     pub fn get_history(self: *const StateManager) []const Transition {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.history_count <= history_max);
 
         const result = self.history[0..self.history_count];
@@ -109,7 +98,6 @@ pub const StateManager = struct {
     }
 
     pub fn get_previous(self: *const StateManager) []const u8 {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.previous_len <= state_max);
 
         const result = self.previous[0..self.previous_len];
@@ -118,15 +106,12 @@ pub const StateManager = struct {
     }
 
     pub fn is_empty(self: *const StateManager) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const result = self.current_len == 0;
 
         return result;
     }
 
     pub fn is_one_of(self: *const StateManager, states: []const []const u8) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(states.len > 0);
 
         for (states) |state| {
@@ -139,8 +124,6 @@ pub const StateManager = struct {
     }
 
     pub fn set(self: *StateManager, new_state: []const u8) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (new_state.len == 0 or new_state.len >= state_max) {
             return Error.InvalidState;
         }
@@ -152,7 +135,6 @@ pub const StateManager = struct {
         var index: u8 = 0;
 
         while (index < self.current_len) : (index += 1) {
-            std.debug.assert(index < self.current_len);
             std.debug.assert(index < state_max);
 
             self.previous[index] = self.current[index];
@@ -163,7 +145,6 @@ pub const StateManager = struct {
         var new_index: u8 = 0;
 
         while (new_index < new_state.len) : (new_index += 1) {
-            std.debug.assert(new_index < new_state.len);
             std.debug.assert(new_index < state_max);
 
             self.current[new_index] = new_state[new_index];
@@ -189,8 +170,6 @@ pub const StateManager = struct {
 };
 
 fn record_history(manager: *StateManager, transition: *const Transition) void {
-    std.debug.assert(@intFromPtr(manager) != 0);
-    std.debug.assert(@intFromPtr(transition) != 0);
     std.debug.assert(manager.history_index < history_max);
 
     manager.history[manager.history_index] = transition.*;

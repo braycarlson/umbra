@@ -18,7 +18,8 @@ const MenuId = struct {
 };
 
 pub fn main() !void {
-    var app = App.init(.{
+    var app: App = undefined;
+    app.init(.{
         .name = "MyTrayApp",
         .tooltip = "My Application",
         .initial_state = "idle",
@@ -28,12 +29,12 @@ pub fn main() !void {
 
     _ = app.configure();
 
-    _ = IconBuilder.init(app.get_icon())
+    _ = try IconBuilder.init(app.get_icon())
         .system("default", .application)
         .system("active", .shield)
         .done();
 
-    _ = MenuBuilder.init(app.get_menu())
+    _ = try MenuBuilder.init(app.get_menu())
         .toggle(MenuId.toggle_feature, "Enable Feature", false)
         .separator()
         .radio(MenuId.option_a, "Option A", "options", true)

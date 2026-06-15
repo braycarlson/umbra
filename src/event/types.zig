@@ -22,9 +22,6 @@ pub const Kind = enum(u8) {
 
     pub fn is_valid(self: Kind) bool {
         const value = @intFromEnum(self);
-
-        std.debug.assert(value <= 255);
-
         const result = value <= kind_max;
 
         return result;
@@ -37,20 +34,12 @@ pub const Response = enum(u8) {
     quit = 2,
 
     pub fn should_quit(self: Response) bool {
-        const value = @intFromEnum(self);
-
-        std.debug.assert(value <= 2);
-
         const result = self == .quit;
 
         return result;
     }
 
     pub fn should_stop(self: Response) bool {
-        const value = @intFromEnum(self);
-
-        std.debug.assert(value <= 2);
-
         const result = self == .handled or self == .quit;
 
         return result;
@@ -141,8 +130,6 @@ pub const Event = struct {
     }
 
     pub fn custom(code: u32, data: ?*anyopaque) Event {
-        std.debug.assert(code <= 0xFFFFFFFF);
-
         const result = Event.create(.custom, .{
             .custom = CustomPayload{
                 .code = code,
@@ -171,8 +158,6 @@ pub const Event = struct {
     }
 
     pub fn menu_select(id: u32, checked: bool) Event {
-        std.debug.assert(id <= 0xFFFFFFFF);
-
         const result = Event.create(.menu_select, .{
             .menu_select = MenuPayload{
                 .checked = checked,
@@ -218,8 +203,6 @@ pub const Event = struct {
     }
 
     pub fn timer_tick(id: u32, tick_count: u64) Event {
-        std.debug.assert(id <= 0xFFFFFFFF);
-
         const result = Event.create(.timer_tick, .{
             .timer_tick = TimerPayload{
                 .id = id,
@@ -257,8 +240,6 @@ pub const Event = struct {
     }
 
     pub fn window_message(message: u32, wparam: u64, lparam: i64) Event {
-        std.debug.assert(message <= 0xFFFFFFFF);
-
         const result = Event.create(.window_message, .{
             .window_message = MessagePayload{
                 .lparam = lparam,

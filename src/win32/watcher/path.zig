@@ -13,7 +13,6 @@ pub const Path = struct {
     filename_len: u32 = 0,
 
     pub fn get_directory(self: *const Path) []const u8 {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
         std.debug.assert(self.directory_len <= path_max);
 
@@ -23,7 +22,6 @@ pub const Path = struct {
     }
 
     pub fn get_filename(self: *const Path) []const u8 {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
         std.debug.assert(self.filename_len <= path_max);
 
@@ -33,8 +31,6 @@ pub const Path = struct {
     }
 
     pub fn is_valid(self: *const Path) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const dir_valid = self.directory_len > 0 and self.directory_len <= path_max;
         const file_valid = self.filename_len > 0 and self.filename_len <= path_max;
         const result = dir_valid and file_valid;
@@ -82,7 +78,6 @@ fn copy_component(destination: []u8, source: []const u8) void {
     var index: u32 = 0;
 
     while (index < source.len) : (index += 1) {
-        std.debug.assert(index < source.len);
         std.debug.assert(index < destination.len);
 
         destination[index] = source[index];

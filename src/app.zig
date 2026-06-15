@@ -55,13 +55,13 @@ pub const App = struct {
     tray: TrayManager,
     window: ?Window,
 
-    pub fn init(config: Config) App {
+    pub fn init(self: *App, config: Config) void {
         std.debug.assert(config.name.len > 0);
         std.debug.assert(config.name.len < name_max);
 
         const tooltip = if (config.tooltip.len > 0) config.tooltip else config.name;
 
-        var result = App{
+        self.* = App{
             .bus = Bus.init(),
             .config = config,
             .icon = IconManager.init(),
@@ -76,26 +76,24 @@ pub const App = struct {
             .window = null,
         };
 
-        result.service = Service.init(&result.bus);
+        self.service = Service.init(&self.bus);
 
-        const length = std.unicode.utf8ToUtf16Le(&result.name_wide, config.name) catch 0;
+        const length = std.unicode.utf8ToUtf16Le(&self.name_wide, config.name) catch 0;
 
         if (length < name_max) {
-            result.name_wide[length] = 0;
+            self.name_wide[length] = 0;
         }
 
         if (config.initial_state.len > 0) {
-            result.state.set(config.initial_state) catch {};
+            std.debug.assert(config.initial_state.len < ui.state.state_max);
+
+            self.state.set(config.initial_state) catch unreachable;
         }
 
-        std.debug.assert(result.lifecycle.stage == .created);
-
-        return result;
+        std.debug.assert(self.lifecycle.stage == .created);
     }
 
     pub fn deinit(self: *App) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         self.timer.deinit();
         self.menu.deinit();
         self.tray.deinit();
@@ -110,15 +108,13 @@ pub const App = struct {
         self.state.deinit();
         self.notification.deinit();
 
-        self.lifecycle.stage = .stopped;
+        self.lifecycle.force_stop();
 
         std.debug.assert(self.window == null);
         std.debug.assert(self.lifecycle.stage == .stopped);
     }
 
     pub fn configure(self: *App) *App {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         _ = self.lifecycle.transition(.configured);
 
         std.debug.assert(self.lifecycle.stage == .configured);
@@ -127,14 +123,10 @@ pub const App = struct {
     }
 
     pub fn event_bus(self: *App) *Bus {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         return &self.bus;
     }
 
     pub fn get_hwnd(self: *const App) ?w32.HWND {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (self.window) |window| {
             return window.handle;
         }
@@ -143,58 +135,40 @@ pub const App = struct {
     }
 
     pub fn get_icon(self: *App) *IconManager {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         return &self.icon;
     }
 
     pub fn get_instance(self: *const App) w32.HINSTANCE {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         return self.service.instance;
     }
 
     pub fn get_menu(self: *App) *MenuManager {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         return &self.menu;
     }
 
     pub fn get_notification(self: *App) *NotificationManager {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         return &self.notification;
     }
 
     pub fn get_state(self: *App) *StateManager {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         return &self.state;
     }
 
     pub fn get_timer(self: *App) *TimerManager {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         return &self.timer;
     }
 
     pub fn get_tray(self: *App) *TrayManager {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         return &self.tray;
     }
 
     pub fn is_running(self: *const App) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const result = self.lifecycle.is_running();
 
         return result;
     }
 
     pub fn post_message(self: *const App, message: u32, wparam: w32.WPARAM, lparam: w32.LPARAM) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (self.window) |window| {
             const result = window.post(message, wparam, lparam);
 
@@ -205,25 +179,17 @@ pub const App = struct {
     }
 
     pub fn quit(self: *App) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         win32.Loop.quit();
 
         _ = self.lifecycle.transition(.stopping);
     }
 
     pub fn run(self: *App) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (self.lifecycle.stage != .configured) {
             return Error.InvalidState;
         }
 
         bind_services(self);
-
-        self.service.instance = @ptrCast(w32.GetModuleHandleW(null));
-
-        std.debug.assert(@intFromPtr(self.service.instance) != 0);
 
         const name_pointer: [*:0]const u16 = @ptrCast(&self.name_wide);
         const name_slice_len = std.mem.indexOfScalar(u16, &self.name_wide, 0) orelse 0;
@@ -248,20 +214,14 @@ pub const App = struct {
         self.service.bind_window(hwnd, self.service.instance);
 
         if (!self.icon.load(self.service.instance)) {
-            self.deinit();
-
             return Error.IconLoadFailed;
         }
 
         const current_icon = self.icon.get_current() orelse {
-            self.deinit();
-
             return Error.IconLoadFailed;
         };
 
         self.tray.create(hwnd, current_icon) catch {
-            self.deinit();
-
             return Error.TrayCreationFailed;
         };
 
@@ -283,14 +243,10 @@ pub const App = struct {
         const shutdown_event = Event.app_shutdown();
 
         _ = self.bus.emit(&shutdown_event);
-
-        self.deinit();
     }
 };
 
 fn bind_services(app: *App) void {
-    std.debug.assert(@intFromPtr(app) != 0);
-
     app.service.bus = &app.bus;
 
     app.icon.bind(&app.service);
@@ -302,9 +258,6 @@ fn bind_services(app: *App) void {
 }
 
 fn handle_message(app: *App, hwnd: w32.HWND, message: u32, wparam: w32.WPARAM, lparam: w32.LPARAM) w32.LRESULT {
-    std.debug.assert(@intFromPtr(app) != 0);
-    std.debug.assert(@intFromPtr(hwnd) != 0);
-
     if (app.window) |window| {
         if (message == window.msg_taskbar) {
             handle_taskbar_restart(app);
@@ -362,8 +315,6 @@ fn handle_message(app: *App, hwnd: w32.HWND, message: u32, wparam: w32.WPARAM, l
 }
 
 fn handle_taskbar_restart(app: *App) void {
-    std.debug.assert(@intFromPtr(app) != 0);
-
     const current_icon = app.icon.get_current() orelse return;
 
     app.tray.recreate(current_icon) catch return;
@@ -373,9 +324,6 @@ fn handle_taskbar_restart(app: *App) void {
 }
 
 fn handle_tray_message(app: *App, hwnd: w32.HWND, lparam: w32.LPARAM) void {
-    std.debug.assert(@intFromPtr(app) != 0);
-    std.debug.assert(@intFromPtr(hwnd) != 0);
-
     const tray_event = TrayEvent.parse(lparam) orelse return;
 
     switch (tray_event) {
@@ -426,9 +374,6 @@ fn handle_tray_message(app: *App, hwnd: w32.HWND, lparam: w32.LPARAM) void {
 }
 
 fn show_context_menu(app: *App, hwnd: w32.HWND) void {
-    std.debug.assert(@intFromPtr(app) != 0);
-    std.debug.assert(@intFromPtr(hwnd) != 0);
-
     const show_ev = Event.menu_show();
 
     _ = app.bus.emit(&show_ev);
@@ -453,8 +398,6 @@ fn show_context_menu(app: *App, hwnd: w32.HWND) void {
 }
 
 fn window_callback(hwnd: w32.HWND, message: u32, wparam: w32.WPARAM, lparam: w32.LPARAM) callconv(.c) w32.LRESULT {
-    std.debug.assert(@intFromPtr(hwnd) != 0);
-
     const app_pointer = Window.context(App, hwnd);
 
     if (app_pointer) |app| {

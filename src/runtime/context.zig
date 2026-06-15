@@ -1,3 +1,5 @@
+const std = @import("std");
+
 pub fn Context(comptime T: type) type {
     return struct {
         ptr: *T,
@@ -16,24 +18,32 @@ pub fn Context(comptime T: type) type {
 
 pub const AnyContext = struct {
     ptr: *anyopaque,
-    type_id: usize,
+    type_id: u64,
 
     pub fn init(comptime T: type, ptr: *T) AnyContext {
-        return AnyContext{
+        const result = AnyContext{
             .ptr = @ptrCast(ptr),
             .type_id = type_hash(T),
         };
+
+        std.debug.assert(result.type_id != 0);
+
+        return result;
     }
 
     pub fn cast(self: AnyContext, comptime T: type) ?*T {
+        std.debug.assert(self.type_id != 0);
+
         if (self.type_id != type_hash(T)) {
             return null;
         }
 
-        return @ptrCast(@alignCast(self.ptr));
+        const result: *T = @ptrCast(@alignCast(self.ptr));
+
+        return result;
     }
 
-    fn type_hash(comptime T: type) usize {
-        return @intFromPtr(@typeName(T).ptr);
+    fn type_hash(comptime T: type) u64 {
+        return @intCast(@intFromPtr(@typeName(T).ptr));
     }
 };

@@ -21,19 +21,15 @@ pub fn process(
     target: []const u8,
     callback: Callback,
 ) void {
-    std.debug.assert(@intFromPtr(buffer) != 0);
     std.debug.assert(count > 0);
     std.debug.assert(count <= size_buffer);
     std.debug.assert(target.len > 0);
-    std.debug.assert(@intFromPtr(callback) != 0);
 
     var offset: u32 = 0;
     var iteration: u32 = 0;
     var found: bool = false;
 
     while (iteration < iteration_max) : (iteration += 1) {
-        std.debug.assert(iteration < iteration_max);
-
         if (offset >= size_buffer) {
             break;
         }
@@ -62,7 +58,6 @@ pub fn process(
 }
 
 fn is_match(info: *const w32.FILE_NOTIFY_INFORMATION, target: []const u8) bool {
-    std.debug.assert(@intFromPtr(info) != 0);
     std.debug.assert(target.len > 0);
 
     const length = info.FileNameLength / filename_length_divisor;

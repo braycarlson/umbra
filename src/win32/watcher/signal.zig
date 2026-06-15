@@ -26,7 +26,6 @@ pub const Signal = struct {
     }
 
     pub fn destroy(self: *const Signal) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const status = w32.CloseHandle(self.handle);
@@ -36,8 +35,6 @@ pub const Signal = struct {
     }
 
     pub fn is_valid(self: *const Signal) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const address = @intFromPtr(self.handle);
         const result = address != 0;
 
@@ -45,7 +42,6 @@ pub const Signal = struct {
     }
 
     pub fn reset(self: *const Signal) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const status = w32.ResetEvent(self.handle);
@@ -55,7 +51,6 @@ pub const Signal = struct {
     }
 
     pub fn set(self: *const Signal) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const status = w32.SetEvent(self.handle);

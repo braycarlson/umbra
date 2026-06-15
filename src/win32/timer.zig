@@ -50,16 +50,12 @@ pub const Timer = struct {
     }
 
     pub fn is_running(self: *const Timer) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromEnum(self.state) <= 1);
-
         const result = self.state == .running;
 
         return result;
     }
 
     pub fn restart(self: *Timer) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.interval_ms > 0);
 
         if (self.state == .running) {
@@ -72,7 +68,6 @@ pub const Timer = struct {
     }
 
     pub fn set_interval(self: *Timer, interval_ms: u32) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(interval_ms > 0);
         std.debug.assert(interval_ms <= interval_max);
 
@@ -90,7 +85,6 @@ pub const Timer = struct {
     }
 
     pub fn start(self: *Timer) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.interval_ms > 0);
 
         if (self.state == .running) {
@@ -109,8 +103,6 @@ pub const Timer = struct {
     }
 
     pub fn stop(self: *Timer) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (self.state != .running) {
             return;
         }
@@ -190,25 +182,16 @@ pub const WaitableTimer = struct {
     }
 
     pub fn cancel(self: *const WaitableTimer) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(self.handle) != 0);
-
         const result = w32.CancelWaitableTimer(self.handle) != 0;
 
         return result;
     }
 
     pub fn close(self: *const WaitableTimer) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(self.handle) != 0);
-
         _ = w32.CloseHandle(self.handle);
     }
 
     pub fn set(self: *const WaitableTimer, options: WaitableTimerSetOptions) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(self.handle) != 0);
-
         var due_time: w32.LARGE_INTEGER = undefined;
 
         due_time.QuadPart = options.due_time_100ns;
@@ -240,7 +223,6 @@ pub const WaitableTimer = struct {
     }
 
     pub fn set_periodic_ms(self: *const WaitableTimer, initial_ms: u32, period_ms: i32) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(initial_ms > 0);
 
         const result = self.set(WaitableTimerSetOptions{
@@ -252,7 +234,6 @@ pub const WaitableTimer = struct {
     }
 
     pub fn set_relative_ms(self: *const WaitableTimer, milliseconds: u32) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(milliseconds > 0);
 
         const result = self.set(WaitableTimerSetOptions{
@@ -263,9 +244,6 @@ pub const WaitableTimer = struct {
     }
 
     pub fn wait(self: *const WaitableTimer, timeout_ms: ?u32) WaitResult {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(self.handle) != 0);
-
         const timeout = timeout_ms orelse w32.INFINITE;
 
         const result = switch (w32.WaitForSingleObject(self.handle, timeout)) {
@@ -309,7 +287,6 @@ pub const PerformanceCounter = struct {
     }
 
     pub fn elapsed_ms(self: *const PerformanceCounter) u64 {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.frequency > 0);
 
         const result = self.elapsed_ns() / ns_to_ms;
@@ -318,7 +295,6 @@ pub const PerformanceCounter = struct {
     }
 
     pub fn elapsed_ns(self: *const PerformanceCounter) u64 {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.frequency > 0);
 
         var counter: w32.LARGE_INTEGER = undefined;
@@ -337,7 +313,6 @@ pub const PerformanceCounter = struct {
     }
 
     pub fn elapsed_sec(self: *const PerformanceCounter) f64 {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.frequency > 0);
 
         const result = @as(f64, @floatFromInt(self.elapsed_ns())) / ns_per_second;
@@ -346,7 +321,6 @@ pub const PerformanceCounter = struct {
     }
 
     pub fn elapsed_us(self: *const PerformanceCounter) u64 {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.frequency > 0);
 
         const result = self.elapsed_ns() / ns_to_us;
@@ -355,8 +329,6 @@ pub const PerformanceCounter = struct {
     }
 
     pub fn reset(self: *PerformanceCounter) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         var counter: w32.LARGE_INTEGER = undefined;
 
         if (w32.QueryPerformanceCounter(&counter) != 0) {

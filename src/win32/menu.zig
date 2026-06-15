@@ -146,7 +146,6 @@ pub const ItemInfo = struct {
     unchecked_bitmap: ?w32.HBITMAP,
 
     pub fn get_label(self: *const ItemInfo) []const u8 {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.label_len <= label_max);
 
         const result = self.label[0..self.label_len];
@@ -165,6 +164,33 @@ pub const Error = error{
     NotFound,
     RemoveFailed,
 };
+
+fn apply_item_attributes(info: *w32.MENUITEMINFOW, options: ItemOptions) void {
+    if (options.sub) |sub| {
+        info.fMask.SUBMENU = 1;
+        info.hSubMenu = sub.handle;
+    }
+
+    if (options.checked_bitmap) |bitmap| {
+        info.fMask.CHECKMARKS = 1;
+        info.hbmpChecked = bitmap;
+    }
+
+    if (options.unchecked_bitmap) |bitmap| {
+        info.fMask.CHECKMARKS = 1;
+        info.hbmpUnchecked = bitmap;
+    }
+
+    if (options.bitmap) |bitmap| {
+        info.fMask.BITMAP = 1;
+        info.hbmpItem = bitmap;
+    }
+
+    if (options.data != 0) {
+        info.fMask.DATA = 1;
+        info.dwItemData = options.data;
+    }
+}
 
 pub const Menu = struct {
     handle: w32.HMENU,
@@ -191,8 +217,6 @@ pub const Menu = struct {
     }
 
     pub fn from_handle(handle: w32.HMENU) Menu {
-        std.debug.assert(@intFromPtr(handle) != 0);
-
         const result = Menu{
             .handle = handle,
             .owned = false,
@@ -202,7 +226,6 @@ pub const Menu = struct {
     }
 
     pub fn append(self: *const Menu, options: ItemOptions) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const position = self.count();
@@ -211,7 +234,6 @@ pub const Menu = struct {
     }
 
     pub fn check_radio(self: *const Menu, first: u32, last: u32, selected: u32) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
         std.debug.assert(first <= last);
         std.debug.assert(selected >= first);
@@ -225,7 +247,6 @@ pub const Menu = struct {
     }
 
     pub fn clear(self: *const Menu) u32 {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         var removed: u32 = 0;
@@ -251,7 +272,6 @@ pub const Menu = struct {
     }
 
     pub fn count(self: *const Menu) u32 {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const raw_result = w32.GetMenuItemCount(self.handle);
@@ -266,8 +286,6 @@ pub const Menu = struct {
     }
 
     pub fn destroy(self: *const Menu) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (self.owned and self.is_valid()) {
             const result = w32.DestroyMenu(self.handle) != 0;
 
@@ -284,7 +302,6 @@ pub const Menu = struct {
     }
 
     pub fn get_id(self: *const Menu, position: u32) ?u32 {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const id = w32.GetMenuItemID(self.handle, @intCast(position));
@@ -297,7 +314,6 @@ pub const Menu = struct {
     }
 
     pub fn get_item(self: *const Menu, position: u32) Error!ItemInfo {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         var info = std.mem.zeroes(w32.MENUITEMINFOW);
@@ -357,7 +373,6 @@ pub const Menu = struct {
     }
 
     pub fn get_submenu(self: *const Menu, position: u32) ?Menu {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const handle = w32.GetSubMenu(self.handle, @intCast(position));
@@ -375,8 +390,6 @@ pub const Menu = struct {
     }
 
     pub fn hilite(self: *const Menu, hwnd: w32.HWND, position: u32, highlight: bool) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(hwnd) != 0);
         std.debug.assert(self.is_valid());
 
         var flags = w32.MENU_ITEM_FLAGS{ .BYPOSITION = 1 };
@@ -391,7 +404,6 @@ pub const Menu = struct {
     }
 
     pub fn insert(self: *const Menu, position: u32, options: ItemOptions) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         var info = std.mem.zeroes(w32.MENUITEMINFOW);
@@ -437,30 +449,7 @@ pub const Menu = struct {
             }
         }
 
-        if (options.sub) |sub| {
-            info.fMask.SUBMENU = 1;
-            info.hSubMenu = sub.handle;
-        }
-
-        if (options.checked_bitmap) |bitmap| {
-            info.fMask.CHECKMARKS = 1;
-            info.hbmpChecked = bitmap;
-        }
-
-        if (options.unchecked_bitmap) |bitmap| {
-            info.fMask.CHECKMARKS = 1;
-            info.hbmpUnchecked = bitmap;
-        }
-
-        if (options.bitmap) |bitmap| {
-            info.fMask.BITMAP = 1;
-            info.hbmpItem = bitmap;
-        }
-
-        if (options.data != 0) {
-            info.fMask.DATA = 1;
-            info.dwItemData = options.data;
-        }
+        apply_item_attributes(&info, options);
 
         const status = w32.InsertMenuItemW(self.handle, position, w32.TRUE, &info);
 
@@ -470,7 +459,6 @@ pub const Menu = struct {
     }
 
     pub fn is_checked(self: *const Menu, id: u32) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const state = w32.GetMenuState(self.handle, id, .{});
@@ -485,7 +473,6 @@ pub const Menu = struct {
     }
 
     pub fn is_enabled(self: *const Menu, id: u32) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const state = w32.GetMenuState(self.handle, id, .{});
@@ -500,23 +487,18 @@ pub const Menu = struct {
     }
 
     pub fn is_menu(handle: w32.HMENU) bool {
-        std.debug.assert(@intFromPtr(handle) != 0);
-
         const result = w32.IsMenu(handle) != 0;
 
         return result;
     }
 
     pub fn is_valid(self: *const Menu) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const result = @intFromPtr(self.handle) != 0;
 
         return result;
     }
 
     pub fn remove(self: *const Menu, position: u32) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const status = w32.DeleteMenu(self.handle, position, .{ .BYPOSITION = 1 });
@@ -527,7 +509,6 @@ pub const Menu = struct {
     }
 
     pub fn remove_by_id(self: *const Menu, id: u32) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const status = w32.DeleteMenu(self.handle, id, .{});
@@ -538,7 +519,6 @@ pub const Menu = struct {
     }
 
     pub fn set_bitmaps(self: *const Menu, position: u32, unchecked: ?w32.HBITMAP, checked: ?w32.HBITMAP) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const status = w32.SetMenuItemBitmaps(self.handle, position, .{ .BYPOSITION = 1 }, unchecked, checked);
@@ -549,7 +529,6 @@ pub const Menu = struct {
     }
 
     pub fn set_checked(self: *const Menu, id: u32, checked: bool) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const flag: u32 = if (checked) state_checked else 0;
@@ -561,7 +540,6 @@ pub const Menu = struct {
     }
 
     pub fn set_default(self: *const Menu, position: u32) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const status = w32.SetMenuDefaultItem(self.handle, position, w32.TRUE);
@@ -572,7 +550,6 @@ pub const Menu = struct {
     }
 
     pub fn set_enabled(self: *const Menu, id: u32, enabled: bool) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         const flag: u32 = if (enabled) 0 else state_enabled_mask;
@@ -584,7 +561,6 @@ pub const Menu = struct {
     }
 
     pub fn set_item(self: *const Menu, position: u32, options: ItemOptions) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         var info = std.mem.zeroes(w32.MENUITEMINFOW);
@@ -627,7 +603,6 @@ pub const Menu = struct {
     }
 
     pub fn set_state(self: *const Menu, position: u32, state: ItemState) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.is_valid());
 
         var info = std.mem.zeroes(w32.MENUITEMINFOW);
@@ -644,8 +619,6 @@ pub const Menu = struct {
     }
 
     pub fn show(self: *const Menu, hwnd: w32.HWND, options: ShowOptions) u32 {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(hwnd) != 0);
         std.debug.assert(self.is_valid());
 
         var x: i32 = 0;

@@ -94,7 +94,6 @@ pub const Notification = struct {
     }
 
     pub fn get_body(self: *const Notification) []const u8 {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.body_len <= body_max);
 
         const result = self.body[0..self.body_len];
@@ -103,7 +102,6 @@ pub const Notification = struct {
     }
 
     pub fn get_title(self: *const Notification) []const u8 {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(self.title_len <= title_max);
 
         const result = self.title[0..self.title_len];
@@ -112,16 +110,12 @@ pub const Notification = struct {
     }
 
     pub fn is_valid(self: *const Notification) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const result = self.title_len > 0 and self.body_len > 0;
 
         return result;
     }
 
     pub fn set_body(self: *Notification, body: []const u8) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (body.len == 0 or body.len >= body_max) {
             return;
         }
@@ -129,7 +123,6 @@ pub const Notification = struct {
         var index: u16 = 0;
 
         while (index < body.len) : (index += 1) {
-            std.debug.assert(index < body.len);
             std.debug.assert(index < body_max);
 
             self.body[index] = body[index];
@@ -141,8 +134,6 @@ pub const Notification = struct {
     }
 
     pub fn set_title(self: *Notification, title: []const u8) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         if (title.len == 0 or title.len >= title_max) {
             return;
         }
@@ -150,7 +141,6 @@ pub const Notification = struct {
         var index: u16 = 0;
 
         while (index < title.len) : (index += 1) {
-            std.debug.assert(index < title.len);
             std.debug.assert(index < title_max);
 
             self.title[index] = title[index];
@@ -196,16 +186,11 @@ pub const NotificationManager = struct {
     }
 
     pub fn deinit(self: *NotificationManager) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         self.hwnd = null;
         self.service = null;
     }
 
     pub fn bind(self: *NotificationManager, hwnd: w32.HWND, tray_id: u32) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(hwnd) != 0);
-
         self.hwnd = hwnd;
         self.tray_id = tray_id;
 
@@ -213,26 +198,18 @@ pub const NotificationManager = struct {
     }
 
     pub fn bind_service(self: *NotificationManager, service: *Service) void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(service) != 0);
-
         self.service = service;
 
         std.debug.assert(self.service != null);
     }
 
     pub fn is_bound(self: *const NotificationManager) bool {
-        std.debug.assert(@intFromPtr(self) != 0);
-
         const result = self.hwnd != null;
 
         return result;
     }
 
     pub fn send(self: *const NotificationManager, notification: *const Notification) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
-        std.debug.assert(@intFromPtr(notification) != 0);
-
         if (self.hwnd == null) {
             return Error.NotBound;
         }
@@ -264,7 +241,6 @@ pub const NotificationManager = struct {
     }
 
     pub fn send_error(self: *const NotificationManager, title: []const u8, body: []const u8) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(title.len > 0);
         std.debug.assert(body.len > 0);
 
@@ -274,7 +250,6 @@ pub const NotificationManager = struct {
     }
 
     pub fn send_simple(self: *const NotificationManager, title: []const u8, body: []const u8) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(title.len > 0);
         std.debug.assert(body.len > 0);
 
@@ -284,7 +259,6 @@ pub const NotificationManager = struct {
     }
 
     pub fn send_warning(self: *const NotificationManager, title: []const u8, body: []const u8) Error!void {
-        std.debug.assert(@intFromPtr(self) != 0);
         std.debug.assert(title.len > 0);
         std.debug.assert(body.len > 0);
 
@@ -309,7 +283,6 @@ fn copy_utf8_to_wide(buffer: anytype, source: []const u8) void {
     var index: u64 = 0;
 
     while (index < limit) : (index += 1) {
-        std.debug.assert(index < limit);
         std.debug.assert(index < buffer_len);
 
         buffer[index] = @as(u16, source[index]);

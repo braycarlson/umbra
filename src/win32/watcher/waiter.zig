@@ -32,13 +32,6 @@ pub fn wait(
     overlapped: *w32.OVERLAPPED,
     running: *const std.atomic.Value(bool),
 ) WaitResult {
-    std.debug.assert(@intFromPtr(directory) != 0);
-    std.debug.assert(@intFromPtr(stop_signal) != 0);
-    std.debug.assert(@intFromPtr(io_signal) != 0);
-    std.debug.assert(@intFromPtr(buffer) != 0);
-    std.debug.assert(@intFromPtr(overlapped) != 0);
-    std.debug.assert(@intFromPtr(running) != 0);
-
     _ = io_signal.reset();
 
     const read_status = w32.ReadDirectoryChangesW(
