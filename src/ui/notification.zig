@@ -1,35 +1,22 @@
 const std = @import("std");
 
-const w32 = @import("win32").everything;
+const platform = @import("../platform.zig");
 
-const runtime = @import("../runtime/root.zig");
+const assert = std.debug.assert;
 
-const Service = runtime.Service;
+const backend = platform.backend.notification;
 
-pub const body_max: u16 = 256;
-pub const title_max: u16 = 64;
+pub const body_max: u32 = 256;
+pub const title_max: u32 = 64;
 
-pub const Error = error{
-    InvalidNotification,
-    NotBound,
-    SendFailed,
-};
+pub const Error = platform.NotificationError;
 
-pub const Icon = enum(u8) {
-    err = 0,
-    info = 1,
-    none = 2,
-    warning = 3,
+pub const Icon = platform.NotificationKind;
 
-    pub fn to_flag(self: Icon) u32 {
-        return switch (self) {
-            .err => 0x00000003,
-            .info => 0x00000001,
-            .none => 0x00000000,
-            .warning => 0x00000002,
-        };
-    }
-};
+comptime {
+    assert(body_max > title_max);
+    assert(title_max > 1);
+}
 
 pub const Notification = struct {
     body: [body_max]u8,
@@ -40,10 +27,10 @@ pub const Notification = struct {
     title_len: u16,
 
     pub fn init(title: []const u8, body: []const u8) Notification {
-        std.debug.assert(title.len > 0);
-        std.debug.assert(title.len < title_max);
-        std.debug.assert(body.len > 0);
-        std.debug.assert(body.len < body_max);
+        assert(title.len > 0);
+        assert(title.len < title_max);
+        assert(body.len > 0);
+        assert(body.len < body_max);
 
         var result = Notification{
             .body = [_]u8{0} ** body_max,
@@ -54,11 +41,11 @@ pub const Notification = struct {
             .title_len = 0,
         };
 
-        result.set_title(title);
-        result.set_body(body);
+        copy_title(&result, title);
+        copy_body(&result, body);
 
-        std.debug.assert(result.title_len > 0);
-        std.debug.assert(result.body_len > 0);
+        assert(result.title_len > 0);
+        assert(result.body_len > 0);
 
         return result;
     }
@@ -68,8 +55,6 @@ pub const Notification = struct {
 
         result.icon = .err;
 
-        std.debug.assert(result.icon == .err);
-
         return result;
     }
 
@@ -77,8 +62,6 @@ pub const Notification = struct {
         var result = Notification.init(title, body);
 
         result.icon = .info;
-
-        std.debug.assert(result.icon == .info);
 
         return result;
     }
@@ -88,79 +71,51 @@ pub const Notification = struct {
 
         result.icon = .warning;
 
-        std.debug.assert(result.icon == .warning);
-
         return result;
     }
 
-    pub fn get_body(self: *const Notification) []const u8 {
-        std.debug.assert(self.body_len <= body_max);
+    pub fn get_body(notification: *const Notification) []const u8 {
+        assert(notification.body_len <= body_max);
 
-        const result = self.body[0..self.body_len];
-
-        return result;
+        return notification.body[0..notification.body_len];
     }
 
-    pub fn get_title(self: *const Notification) []const u8 {
-        std.debug.assert(self.title_len <= title_max);
+    pub fn get_title(notification: *const Notification) []const u8 {
+        assert(notification.title_len <= title_max);
 
-        const result = self.title[0..self.title_len];
-
-        return result;
+        return notification.title[0..notification.title_len];
     }
 
-    pub fn is_valid(self: *const Notification) bool {
-        const result = self.title_len > 0 and self.body_len > 0;
-
-        return result;
+    pub fn is_valid(notification: *const Notification) bool {
+        return notification.title_len > 0 and notification.body_len > 0;
     }
 
-    pub fn set_body(self: *Notification, body: []const u8) void {
+    pub fn set_body(notification: *Notification, body: []const u8) Error!void {
         if (body.len == 0 or body.len >= body_max) {
-            return;
+            return Error.InvalidNotification;
         }
 
-        var index: u16 = 0;
-
-        while (index < body.len) : (index += 1) {
-            std.debug.assert(index < body_max);
-
-            self.body[index] = body[index];
-        }
-
-        self.body_len = @intCast(body.len);
-
-        std.debug.assert(self.body_len == body.len);
+        copy_body(notification, body);
     }
 
-    pub fn set_title(self: *Notification, title: []const u8) void {
+    pub fn set_title(notification: *Notification, title: []const u8) Error!void {
         if (title.len == 0 or title.len >= title_max) {
-            return;
+            return Error.InvalidNotification;
         }
 
-        var index: u16 = 0;
-
-        while (index < title.len) : (index += 1) {
-            std.debug.assert(index < title_max);
-
-            self.title[index] = title[index];
-        }
-
-        self.title_len = @intCast(title.len);
-
-        std.debug.assert(self.title_len == title.len);
+        copy_title(notification, title);
     }
 
-    pub fn with_icon(self: Notification, icon_type: Icon) Notification {
-        var result = self;
+    pub fn with_icon(notification: Notification, icon: Icon) Notification {
+        var result = notification;
 
-        result.icon = icon_type;
+        result.icon = icon;
 
         return result;
     }
 
-    pub fn with_silent(self: Notification, silent: bool) Notification {
-        var result = self;
+    pub fn with_silent(notification: Notification, silent: bool) Notification {
+        var result = notification;
 
         result.silent = silent;
 
@@ -168,125 +123,178 @@ pub const Notification = struct {
     }
 };
 
+fn copy_body(notification: *Notification, body: []const u8) void {
+    assert(body.len > 0);
+    assert(body.len < body_max);
+
+    @memcpy(notification.body[0..body.len], body);
+
+    notification.body_len = @intCast(body.len);
+
+    assert(notification.body_len == body.len);
+}
+
+fn copy_title(notification: *Notification, title: []const u8) void {
+    assert(title.len > 0);
+    assert(title.len < title_max);
+
+    @memcpy(notification.title[0..title.len], title);
+
+    notification.title_len = @intCast(title.len);
+
+    assert(notification.title_len == title.len);
+}
+
 pub const NotificationManager = struct {
-    hwnd: ?w32.HWND,
-    service: ?*Service,
-    tray_id: u32,
+    sent: u32,
 
     pub fn init() NotificationManager {
-        const result = NotificationManager{
-            .hwnd = null,
-            .service = null,
-            .tray_id = 1,
-        };
+        const result = NotificationManager{ .sent = 0 };
 
-        std.debug.assert(result.hwnd == null);
+        assert(result.sent == 0);
 
         return result;
     }
 
-    pub fn deinit(self: *NotificationManager) void {
-        self.hwnd = null;
-        self.service = null;
+    pub fn deinit(manager: *NotificationManager) void {
+        manager.sent = 0;
+
+        assert(manager.sent == 0);
     }
 
-    pub fn bind(self: *NotificationManager, hwnd: w32.HWND, tray_id: u32) void {
-        self.hwnd = hwnd;
-        self.tray_id = tray_id;
-
-        std.debug.assert(self.hwnd != null);
+    pub fn sent_count(manager: *const NotificationManager) u32 {
+        return manager.sent;
     }
 
-    pub fn bind_service(self: *NotificationManager, service: *Service) void {
-        self.service = service;
-
-        std.debug.assert(self.service != null);
-    }
-
-    pub fn is_bound(self: *const NotificationManager) bool {
-        const result = self.hwnd != null;
-
-        return result;
-    }
-
-    pub fn send(self: *const NotificationManager, notification: *const Notification) Error!void {
-        if (self.hwnd == null) {
-            return Error.NotBound;
-        }
-
+    pub fn send(manager: *NotificationManager, notification: *const Notification) Error!void {
         if (!notification.is_valid()) {
             return Error.InvalidNotification;
         }
 
-        var data = std.mem.zeroes(w32.NOTIFYICONDATAW);
-
-        data.cbSize = @sizeOf(w32.NOTIFYICONDATAW);
-        data.hWnd = self.hwnd.?;
-        data.uID = self.tray_id;
-        data.uFlags = .{ .INFO = 1 };
-        data.dwInfoFlags = notification.icon.to_flag();
-
-        if (notification.silent) {
-            data.dwInfoFlags |= 0x00000010;
-        }
-
-        copy_utf8_to_wide(&data.szInfoTitle, notification.get_title());
-        copy_utf8_to_wide(&data.szInfo, notification.get_body());
-
-        const status = w32.Shell_NotifyIconW(w32.NIM_MODIFY, &data);
-
-        if (status == 0) {
+        backend.send(.{
+            .body = notification.get_body(),
+            .kind = notification.icon,
+            .silent = notification.silent,
+            .title = notification.get_title(),
+        }) catch {
             return Error.SendFailed;
-        }
+        };
+
+        manager.sent += 1;
+
+        assert(manager.sent > 0);
     }
 
-    pub fn send_error(self: *const NotificationManager, title: []const u8, body: []const u8) Error!void {
-        std.debug.assert(title.len > 0);
-        std.debug.assert(body.len > 0);
-
+    pub fn send_error(
+        manager: *NotificationManager,
+        title: []const u8,
+        body: []const u8,
+    ) Error!void {
         const notification = Notification.err(title, body);
 
-        try self.send(&notification);
+        try manager.send(&notification);
     }
 
-    pub fn send_simple(self: *const NotificationManager, title: []const u8, body: []const u8) Error!void {
-        std.debug.assert(title.len > 0);
-        std.debug.assert(body.len > 0);
-
+    pub fn send_simple(
+        manager: *NotificationManager,
+        title: []const u8,
+        body: []const u8,
+    ) Error!void {
         const notification = Notification.info(title, body);
 
-        try self.send(&notification);
+        try manager.send(&notification);
     }
 
-    pub fn send_warning(self: *const NotificationManager, title: []const u8, body: []const u8) Error!void {
-        std.debug.assert(title.len > 0);
-        std.debug.assert(body.len > 0);
-
+    pub fn send_warning(
+        manager: *NotificationManager,
+        title: []const u8,
+        body: []const u8,
+    ) Error!void {
         const notification = Notification.warning(title, body);
 
-        try self.send(&notification);
+        try manager.send(&notification);
     }
 };
 
-fn copy_utf8_to_wide(buffer: anytype, source: []const u8) void {
-    std.debug.assert(buffer.len > 0);
+const testing = std.testing;
 
-    if (source.len == 0) {
-        buffer[0] = 0;
+test "Icon is the neutral notification kind" {
+    try testing.expectEqual(platform.NotificationKind, Icon);
+    try testing.expect(Icon.info.is_valid());
+    try testing.expect(Icon.none.is_valid());
+}
 
-        return;
-    }
+test "a notification carries the title and body it was built from" {
+    const notification = Notification.init("Title", "Body");
 
-    const buffer_len: u64 = buffer.len;
-    const limit = @min(source.len, buffer_len - 1);
+    try testing.expectEqualStrings("Title", notification.get_title());
+    try testing.expectEqualStrings("Body", notification.get_body());
+    try testing.expectEqual(Icon.info, notification.icon);
+    try testing.expect(!notification.silent);
+}
 
-    var index: u64 = 0;
+test "Notification constructors pick the icon" {
+    try testing.expectEqual(Icon.err, Notification.err("Error", "Body").icon);
+    try testing.expectEqual(Icon.info, Notification.info("Info", "Body").icon);
+    try testing.expectEqual(Icon.warning, Notification.warning("Warning", "Body").icon);
+}
 
-    while (index < limit) : (index += 1) {
-        std.debug.assert(index < buffer_len);
+test "a notification rejects an empty title" {
+    var notification = Notification.init("Original", "Body");
 
-        buffer[index] = @as(u16, source[index]);
-    }
+    try testing.expectError(Error.InvalidNotification, notification.set_title(""));
+    try testing.expectEqualStrings("Original", notification.get_title());
 
-    buffer[index] = 0;
+    try notification.set_title("Renamed");
+
+    try testing.expectEqualStrings("Renamed", notification.get_title());
+}
+
+test "a notification rejects an empty body" {
+    var notification = Notification.init("Title", "Original");
+
+    try testing.expectError(Error.InvalidNotification, notification.set_body(""));
+    try testing.expectEqualStrings("Original", notification.get_body());
+
+    const long = [_]u8{'a'} ** body_max;
+
+    try testing.expectError(Error.InvalidNotification, notification.set_body(&long));
+}
+
+test "Notification chaining preserves every field" {
+    const notification = Notification.init("Title", "Body")
+        .with_icon(.err)
+        .with_silent(true);
+
+    try testing.expectEqual(Icon.err, notification.icon);
+    try testing.expect(notification.silent);
+    try testing.expectEqualStrings("Title", notification.get_title());
+    try testing.expectEqualStrings("Body", notification.get_body());
+}
+
+test "a notification needs both a title and a body to be valid" {
+    var notification = Notification.init("Title", "Body");
+
+    try testing.expect(notification.is_valid());
+
+    notification.title_len = 0;
+
+    try testing.expect(!notification.is_valid());
+
+    notification = Notification.init("Title", "Body");
+    notification.body_len = 0;
+
+    try testing.expect(!notification.is_valid());
+}
+
+test "sending an invalid notification is rejected" {
+    var manager = NotificationManager.init();
+    defer manager.deinit();
+
+    var notification = Notification.init("Title", "Body");
+
+    notification.title_len = 0;
+
+    try testing.expectError(Error.InvalidNotification, manager.send(&notification));
+    try testing.expectEqual(@as(u32, 0), manager.sent_count());
 }

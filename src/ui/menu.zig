@@ -1,31 +1,24 @@
 const std = @import("std");
 
-const w32 = @import("win32").everything;
+const platform = @import("../platform.zig");
 
-const runtime = @import("../runtime/root.zig");
-const win32 = @import("../win32/root.zig");
+const assert = std.debug.assert;
 
-const Menu = win32.Menu;
-const Service = runtime.Service;
+const backend = platform.backend.menu;
 
-pub const group_max: u8 = 32;
-pub const id_offset: u32 = 1000;
+pub const group_max: u32 = 32;
 pub const item_max: u8 = 64;
-pub const label_max: u16 = 128;
+pub const label_max: u32 = 128;
 
-pub const Error = error{
-    BuildFailed,
-    CapacityExceeded,
-    InvalidLabel,
-    NotFound,
-};
+comptime {
+    assert(group_max > 1);
+    assert(item_max > 0);
+    assert(label_max > 1);
+}
 
-pub const ItemKind = enum(u8) {
-    action = 0,
-    radio = 1,
-    separator = 2,
-    toggle = 3,
-};
+pub const Error = platform.MenuError;
+
+pub const ItemKind = platform.MenuItemKind;
 
 pub const Item = struct {
     checked: bool,
@@ -39,35 +32,33 @@ pub const Item = struct {
     visible: bool,
 
     pub fn action(id: u32, label: []const u8) Item {
-        std.debug.assert(label.len > 0);
-        std.debug.assert(label.len < label_max);
+        assert(label.len > 0);
+        assert(label.len < label_max);
 
         var result = empty();
 
         result.id = id;
         result.kind = .action;
-        result.set_label(label);
 
-        std.debug.assert(result.kind == .action);
+        copy_label(&result, label);
 
         return result;
     }
 
     pub fn radio(id: u32, label: []const u8, group_name: []const u8, initial: bool) Item {
-        std.debug.assert(label.len > 0);
-        std.debug.assert(label.len < label_max);
-        std.debug.assert(group_name.len > 0);
-        std.debug.assert(group_name.len < group_max);
+        assert(label.len > 0);
+        assert(label.len < label_max);
+        assert(group_name.len > 0);
+        assert(group_name.len < group_max);
 
         var result = empty();
 
         result.checked = initial;
         result.id = id;
         result.kind = .radio;
-        result.set_group(group_name);
-        result.set_label(label);
 
-        std.debug.assert(result.kind == .radio);
+        copy_group(&result, group_name);
+        copy_label(&result, label);
 
         return result;
     }
@@ -77,23 +68,20 @@ pub const Item = struct {
 
         result.kind = .separator;
 
-        std.debug.assert(result.kind == .separator);
-
         return result;
     }
 
     pub fn toggle(id: u32, label: []const u8, initial: bool) Item {
-        std.debug.assert(label.len > 0);
-        std.debug.assert(label.len < label_max);
+        assert(label.len > 0);
+        assert(label.len < label_max);
 
         var result = empty();
 
         result.checked = initial;
         result.id = id;
         result.kind = .toggle;
-        result.set_label(label);
 
-        std.debug.assert(result.kind == .toggle);
+        copy_label(&result, label);
 
         return result;
     }
@@ -114,228 +102,199 @@ pub const Item = struct {
         return result;
     }
 
-    pub fn get_group(self: *const Item) ?[]const u8 {
-        if (self.group_len == 0) {
+    pub fn get_group(item: *const Item) ?[]const u8 {
+        if (item.group_len == 0) {
             return null;
         }
 
-        std.debug.assert(self.group_len <= group_max);
+        assert(item.group_len <= group_max);
 
-        const result = self.group[0..self.group_len];
-
-        return result;
+        return item.group[0..item.group_len];
     }
 
-    pub fn get_label(self: *const Item) []const u8 {
-        std.debug.assert(self.label_len <= label_max);
+    pub fn get_label(item: *const Item) []const u8 {
+        assert(item.label_len <= label_max);
 
-        const result = self.label[0..self.label_len];
-
-        return result;
+        return item.label[0..item.label_len];
     }
 
-    pub fn is_in_group(self: *const Item, group_name: []const u8) bool {
-        if (self.group_len == 0 or group_name.len != self.group_len) {
+    pub fn is_in_group(item: *const Item, group_name: []const u8) bool {
+        if (item.group_len == 0 or group_name.len != item.group_len) {
             return false;
         }
 
-        const result = std.mem.eql(u8, self.group[0..self.group_len], group_name);
-
-        return result;
+        return std.mem.eql(u8, item.group[0..item.group_len], group_name);
     }
 
-    pub fn set_group(self: *Item, group_name: []const u8) void {
+    pub fn set_group(item: *Item, group_name: []const u8) Error!void {
         if (group_name.len == 0 or group_name.len >= group_max) {
-            return;
+            return Error.InvalidLabel;
         }
 
-        var index: u8 = 0;
-
-        while (index < group_name.len) : (index += 1) {
-            std.debug.assert(index < group_max);
-
-            self.group[index] = group_name[index];
-        }
-
-        self.group_len = @intCast(group_name.len);
-
-        std.debug.assert(self.group_len == group_name.len);
+        copy_group(item, group_name);
     }
 
-    pub fn set_label(self: *Item, label: []const u8) void {
+    pub fn set_label(item: *Item, label: []const u8) Error!void {
         if (label.len == 0 or label.len >= label_max) {
-            return;
+            return Error.InvalidLabel;
         }
 
-        var index: u16 = 0;
-
-        while (index < label.len) : (index += 1) {
-            std.debug.assert(index < label_max);
-
-            self.label[index] = label[index];
-        }
-
-        self.label_len = @intCast(label.len);
-
-        std.debug.assert(self.label_len == label.len);
+        copy_label(item, label);
     }
 };
+
+fn copy_group(item: *Item, group_name: []const u8) void {
+    assert(group_name.len > 0);
+    assert(group_name.len < group_max);
+
+    @memcpy(item.group[0..group_name.len], group_name);
+
+    item.group_len = @intCast(group_name.len);
+
+    assert(item.group_len == group_name.len);
+}
+
+fn copy_label(item: *Item, label: []const u8) void {
+    assert(label.len > 0);
+    assert(label.len < label_max);
+
+    @memcpy(item.label[0..label.len], label);
+
+    item.label_len = @intCast(label.len);
+
+    assert(item.label_len == label.len);
+}
 
 pub const MenuManager = struct {
     count: u8,
     dirty: bool,
     items: [item_max]?Item,
-    menu: ?Menu,
-    service: ?*Service,
 
     pub fn init() MenuManager {
         const result = MenuManager{
             .count = 0,
             .dirty = true,
             .items = [_]?Item{null} ** item_max,
-            .menu = null,
-            .service = null,
         };
 
-        std.debug.assert(result.count == 0);
-        std.debug.assert(result.dirty == true);
+        assert(result.count == 0);
+        assert(result.dirty == true);
 
         return result;
     }
 
-    pub fn deinit(self: *MenuManager) void {
-        if (self.menu) |menu| {
-            _ = menu.destroy();
-            self.menu = null;
-        }
+    pub fn deinit(manager: *MenuManager) void {
+        backend.destroy();
 
-        self.clear();
+        manager.clear();
 
-        std.debug.assert(self.menu == null);
+        assert(manager.count == 0);
     }
 
-    pub fn add(self: *MenuManager, item: Item) Error!void {
-        if (self.count >= item_max) {
+    pub fn add(manager: *MenuManager, item: Item) Error!void {
+        if (manager.count >= item_max) {
             return Error.CapacityExceeded;
         }
 
-        self.items[self.count] = item;
-        self.count += 1;
-        self.dirty = true;
+        manager.items[manager.count] = item;
+        manager.count += 1;
+        manager.dirty = true;
 
-        std.debug.assert(self.count <= item_max);
+        assert(manager.count <= item_max);
     }
 
-    pub fn add_action(self: *MenuManager, id: u32, label: []const u8) Error!void {
-        try self.add(Item.action(id, label));
+    pub fn add_action(manager: *MenuManager, id: u32, label: []const u8) Error!void {
+        try manager.add(Item.action(id, label));
     }
 
-    pub fn add_radio(self: *MenuManager, id: u32, label: []const u8, group_name: []const u8, initial: bool) Error!void {
-        try self.add(Item.radio(id, label, group_name, initial));
+    pub fn add_radio(
+        manager: *MenuManager,
+        id: u32,
+        label: []const u8,
+        group_name: []const u8,
+        initial: bool,
+    ) Error!void {
+        try manager.add(Item.radio(id, label, group_name, initial));
 
         if (initial) {
-            select_radio(self, group_name, id);
+            select_radio(manager, group_name, id);
         }
     }
 
-    pub fn add_separator(self: *MenuManager) Error!void {
-        try self.add(Item.separator());
+    pub fn add_separator(manager: *MenuManager) Error!void {
+        try manager.add(Item.separator());
     }
 
-    pub fn add_toggle(self: *MenuManager, id: u32, label: []const u8, initial: bool) Error!void {
-        try self.add(Item.toggle(id, label, initial));
+    pub fn add_toggle(manager: *MenuManager, id: u32, label: []const u8, initial: bool) Error!void {
+        try manager.add(Item.toggle(id, label, initial));
     }
 
-    pub fn bind(self: *MenuManager, service: *Service) void {
-        self.service = service;
-
-        std.debug.assert(self.service != null);
-    }
-
-    pub fn build(self: *MenuManager) Error!void {
-        if (!self.dirty and self.menu != null) {
+    pub fn build(manager: *MenuManager) Error!void {
+        if (!manager.dirty) {
             return;
         }
 
-        if (self.menu == null) {
-            self.menu = Menu.create(.{}) catch return Error.BuildFailed;
-        }
-
-        std.debug.assert(self.menu != null);
-
-        _ = self.menu.?.clear();
-
-        var position: u32 = 0;
+        var staged: [item_max]platform.MenuItem = undefined;
+        var staged_count: u8 = 0;
         var index: u8 = 0;
 
-        while (index < self.count) : (index += 1) {
-            std.debug.assert(index < item_max);
+        while (index < manager.count) : (index += 1) {
+            assert(index < item_max);
 
-            if (self.items[index]) |*item| {
+            if (manager.items[index]) |*item| {
                 if (!item.visible) {
                     continue;
                 }
 
-                if (item.kind == .separator) {
-                    self.menu.?.insert(position, .{ .item_type = .separator }) catch continue;
-                    position += 1;
-
+                if (item.kind != .separator and item.get_label().len == 0) {
                     continue;
                 }
 
-                const label = item.get_label();
+                assert(staged_count < item_max);
 
-                if (label.len == 0) {
-                    continue;
-                }
+                staged[staged_count] = .{
+                    .checked = item.checked,
+                    .enabled = item.enabled,
+                    .id = item.id,
+                    .kind = item.kind,
+                    .label = item.get_label(),
+                };
 
-                var state = win32.MenuItemState{};
-
-                if (item.checked) {
-                    state.checked = true;
-                }
-
-                if (!item.enabled) {
-                    state.disabled = true;
-                }
-
-                self.menu.?.insert(position, .{
-                    .id = item.id + id_offset,
-                    .label = label,
-                    .state = state,
-                }) catch continue;
-
-                position += 1;
+                staged_count += 1;
             }
         }
 
-        self.dirty = false;
+        backend.build(staged[0..staged_count]) catch {
+            return Error.BuildFailed;
+        };
 
-        std.debug.assert(self.dirty == false);
+        manager.dirty = false;
+
+        assert(!manager.dirty);
     }
 
-    pub fn clear(self: *MenuManager) void {
+    pub fn clear(manager: *MenuManager) void {
         var index: u8 = 0;
 
-        while (index < self.count) : (index += 1) {
-            std.debug.assert(index < item_max);
+        while (index < manager.count) : (index += 1) {
+            assert(index < item_max);
 
-            self.items[index] = null;
+            manager.items[index] = null;
         }
 
-        self.count = 0;
-        self.dirty = true;
+        manager.count = 0;
+        manager.dirty = true;
 
-        std.debug.assert(self.count == 0);
+        assert(manager.count == 0);
     }
 
-    pub fn get_item(self: *const MenuManager, id: u32) ?*const Item {
+    pub fn get_item(manager: *const MenuManager, id: u32) ?*const Item {
         var index: u8 = 0;
 
-        while (index < self.count) : (index += 1) {
-            std.debug.assert(index < item_max);
+        while (index < manager.count) : (index += 1) {
+            assert(index < item_max);
 
-            if (self.items[index]) |*item| {
+            if (manager.items[index]) |*item| {
                 if (item.id == id) {
                     return item;
                 }
@@ -345,13 +304,13 @@ pub const MenuManager = struct {
         return null;
     }
 
-    pub fn get_radio_selection(self: *const MenuManager, group_name: []const u8) ?u32 {
+    pub fn get_radio_selection(manager: *const MenuManager, group_name: []const u8) ?u32 {
         var index: u8 = 0;
 
-        while (index < self.count) : (index += 1) {
-            std.debug.assert(index < item_max);
+        while (index < manager.count) : (index += 1) {
+            assert(index < item_max);
 
-            if (self.items[index]) |*item| {
+            if (manager.items[index]) |*item| {
                 if (item.kind == .radio and item.is_in_group(group_name) and item.checked) {
                     return item.id;
                 }
@@ -361,103 +320,70 @@ pub const MenuManager = struct {
         return null;
     }
 
-    pub fn handle_command(_: *MenuManager, raw_id: u32) ?u32 {
-        if (raw_id < id_offset) {
-            return null;
-        }
-
-        const result = raw_id - id_offset;
-
-        return result;
-    }
-
-    pub fn is_checked(self: *const MenuManager, id: u32) bool {
-        const item = self.get_item(id) orelse return false;
+    pub fn is_checked(manager: *const MenuManager, id: u32) bool {
+        const item = manager.get_item(id) orelse return false;
 
         return item.checked;
     }
 
-    pub fn is_empty(self: *const MenuManager) bool {
-        const result = self.count == 0;
-
-        return result;
+    pub fn is_empty(manager: *const MenuManager) bool {
+        return manager.count == 0;
     }
 
-    pub fn mark_dirty(self: *MenuManager) void {
-        self.dirty = true;
+    pub fn mark_dirty(manager: *MenuManager) void {
+        manager.dirty = true;
     }
 
-    pub fn set_checked(self: *MenuManager, id: u32, checked: bool) Error!void {
-        const item = get_item_mut(self, id) orelse return Error.NotFound;
+    pub fn set_checked(manager: *MenuManager, id: u32, checked: bool) Error!void {
+        const item = get_item_mut(manager, id) orelse return Error.NotFound;
 
         if (item.kind == .radio and checked) {
             if (item.get_group()) |group_name| {
-                select_radio(self, group_name, id);
+                select_radio(manager, group_name, id);
             }
         } else {
             item.checked = checked;
         }
 
-        self.dirty = true;
+        manager.dirty = true;
     }
 
-    pub fn set_enabled(self: *MenuManager, id: u32, enabled: bool) Error!void {
-        const item = get_item_mut(self, id) orelse return Error.NotFound;
+    pub fn set_enabled(manager: *MenuManager, id: u32, enabled: bool) Error!void {
+        const item = get_item_mut(manager, id) orelse return Error.NotFound;
 
         item.enabled = enabled;
-        self.dirty = true;
+        manager.dirty = true;
     }
 
-    pub fn set_label(self: *MenuManager, id: u32, label: []const u8) Error!void {
-        std.debug.assert(label.len > 0);
+    pub fn set_label(manager: *MenuManager, id: u32, label: []const u8) Error!void {
+        const item = get_item_mut(manager, id) orelse return Error.NotFound;
 
-        const item = get_item_mut(self, id) orelse return Error.NotFound;
+        try item.set_label(label);
 
-        item.set_label(label);
-        self.dirty = true;
+        manager.dirty = true;
     }
 
-    pub fn set_visible(self: *MenuManager, id: u32, visible: bool) Error!void {
-        const item = get_item_mut(self, id) orelse return Error.NotFound;
+    pub fn set_visible(manager: *MenuManager, id: u32, visible: bool) Error!void {
+        const item = get_item_mut(manager, id) orelse return Error.NotFound;
 
         item.visible = visible;
-        self.dirty = true;
+        manager.dirty = true;
     }
 
-    pub fn show(self: *MenuManager, hwnd: w32.HWND) ?u32 {
-        self.build() catch return null;
-
-        if (self.menu == null) {
-            return null;
-        }
-
-        const command = self.menu.?.show(hwnd, .{});
-
-        if (command == 0) {
-            return null;
-        }
-
-        if (command >= id_offset) {
-            return command - id_offset;
-        }
-
-        return null;
-    }
-
-    pub fn toggle_item(self: *MenuManager, id: u32) Error!bool {
-        const item = get_item_mut(self, id) orelse return Error.NotFound;
+    pub fn toggle_item(manager: *MenuManager, id: u32) Error!bool {
+        const item = get_item_mut(manager, id) orelse return Error.NotFound;
 
         if (item.kind == .toggle) {
             item.checked = !item.checked;
-            self.dirty = true;
+            manager.dirty = true;
 
             return item.checked;
         }
 
         if (item.kind == .radio and !item.checked) {
             if (item.get_group()) |group_name| {
-                select_radio(self, group_name, id);
-                self.dirty = true;
+                select_radio(manager, group_name, id);
+                manager.dirty = true;
 
                 return true;
             }
@@ -471,7 +397,7 @@ fn get_item_mut(manager: *MenuManager, id: u32) ?*Item {
     var index: u8 = 0;
 
     while (index < manager.count) : (index += 1) {
-        std.debug.assert(index < item_max);
+        assert(index < item_max);
 
         if (manager.items[index]) |*item| {
             if (item.id == id) {
@@ -484,12 +410,12 @@ fn get_item_mut(manager: *MenuManager, id: u32) ?*Item {
 }
 
 fn select_radio(manager: *MenuManager, group_name: []const u8, selected_id: u32) void {
-    std.debug.assert(group_name.len > 0);
+    assert(group_name.len > 0);
 
     var index: u8 = 0;
 
     while (index < manager.count) : (index += 1) {
-        std.debug.assert(index < item_max);
+        assert(index < item_max);
 
         if (manager.items[index]) |*item| {
             if (item.kind == .radio and item.is_in_group(group_name)) {
@@ -497,4 +423,390 @@ fn select_radio(manager: *MenuManager, group_name: []const u8, selected_id: u32)
             }
         }
     }
+}
+
+const testing = std.testing;
+
+test "ItemKind is the neutral menu item kind" {
+    try testing.expectEqual(platform.MenuItemKind, ItemKind);
+    try testing.expect(ItemKind.action.is_valid());
+    try testing.expect(ItemKind.separator.is_valid());
+}
+
+test "an action item carries its label and id" {
+    const item = Item.action(1, "Test");
+
+    try testing.expectEqual(@as(u32, 1), item.id);
+    try testing.expectEqual(ItemKind.action, item.kind);
+    try testing.expectEqualStrings("Test", item.get_label());
+    try testing.expect(item.enabled);
+    try testing.expect(item.visible);
+    try testing.expect(!item.checked);
+}
+
+test "a toggle item starts from the checked flag it is given" {
+    const item = Item.toggle(2, "Toggle", true);
+
+    try testing.expectEqual(@as(u32, 2), item.id);
+    try testing.expectEqual(ItemKind.toggle, item.kind);
+    try testing.expectEqualStrings("Toggle", item.get_label());
+    try testing.expect(item.checked);
+}
+
+test "a toggle item can start unchecked" {
+    const item = Item.toggle(3, "Toggle", false);
+
+    try testing.expect(!item.checked);
+}
+
+test "a radio item carries its group" {
+    const item = Item.radio(4, "Option", "group1", true);
+
+    try testing.expectEqual(@as(u32, 4), item.id);
+    try testing.expectEqual(ItemKind.radio, item.kind);
+    try testing.expectEqualStrings("Option", item.get_label());
+    try testing.expect(item.checked);
+
+    const group = item.get_group();
+
+    try testing.expect(group != null);
+    try testing.expectEqualStrings("group1", group.?);
+}
+
+test "a separator item carries no label" {
+    const item = Item.separator();
+
+    try testing.expectEqual(ItemKind.separator, item.kind);
+}
+
+test "relabelling an item replaces its label" {
+    var item = Item.action(1, "Old");
+
+    try item.set_label("New Label");
+
+    try testing.expectEqualStrings("New Label", item.get_label());
+}
+
+test "an item rejects an empty label" {
+    var item = Item.action(1, "Original");
+
+    try testing.expectError(Error.InvalidLabel, item.set_label(""));
+    try testing.expectEqualStrings("Original", item.get_label());
+}
+
+test "regrouping an item replaces its group" {
+    var item = Item.radio(1, "Option", "old", false);
+
+    try item.set_group("newgroup");
+
+    const group = item.get_group();
+
+    try testing.expect(group != null);
+    try testing.expectEqualStrings("newgroup", group.?);
+}
+
+test "an item belongs to its own group" {
+    const item = Item.radio(1, "Option", "mygroup", false);
+
+    try testing.expect(item.is_in_group("mygroup"));
+}
+
+test "an item does not belong to another group" {
+    const item = Item.radio(1, "Option", "mygroup", false);
+
+    try testing.expect(!item.is_in_group("other"));
+}
+
+test "a group name matches only in full" {
+    const item = Item.radio(1, "Option", "mygroup", false);
+
+    try testing.expect(!item.is_in_group("my"));
+    try testing.expect(!item.is_in_group("mygroupx"));
+}
+
+test "a fresh menu holds no items" {
+    const manager = MenuManager.init();
+
+    try testing.expect(manager.is_empty());
+    try testing.expectEqual(@as(u8, 0), manager.count);
+    try testing.expect(manager.dirty);
+}
+
+test "an added item is held by the menu" {
+    var manager = MenuManager.init();
+    defer manager.deinit();
+
+    try manager.add(Item.action(1, "Test"));
+
+    try testing.expect(!manager.is_empty());
+    try testing.expectEqual(@as(u8, 1), manager.count);
+}
+
+test "a full menu refuses another item" {
+    var manager = MenuManager.init();
+    defer manager.deinit();
+
+    var index: u8 = 0;
+
+    while (index < item_max) : (index += 1) {
+        assert(index < item_max);
+
+        try manager.add(Item.action(index, "Item"));
+    }
+
+    const result = manager.add(Item.action(255, "Overflow"));
+
+    try testing.expectError(Error.CapacityExceeded, result);
+}
+
+test "a menu adds an action item" {
+    var manager = MenuManager.init();
+    defer manager.deinit();
+
+    try manager.add_action(1, "Action");
+
+    const item = manager.get_item(1);
+
+    try testing.expect(item != null);
+    try testing.expectEqual(ItemKind.action, item.?.kind);
+}
+
+test "a menu adds a toggle item" {
+    var manager = MenuManager.init();
+    defer manager.deinit();
+
+    try manager.add_toggle(1, "Toggle", true);
+
+    const item = manager.get_item(1);
+
+    try testing.expect(item != null);
+    try testing.expectEqual(ItemKind.toggle, item.?.kind);
+    try testing.expect(item.?.checked);
+}
+
+test "a menu adds a radio item and selects it in its group" {
+    var manager = MenuManager.init();
+    defer manager.deinit();
+
+    try manager.add_radio(1, "Option 1", "group", true);
+    try manager.add_radio(2, "Option 2", "group", false);
+    try manager.add_radio(3, "Option 3", "group", false);
+
+    try testing.expect(manager.is_checked(1));
+    try testing.expect(!manager.is_checked(2));
+    try testing.expect(!manager.is_checked(3));
+}
+
+test "a menu adds a separator" {
+    var manager = MenuManager.init();
+    defer manager.deinit();
+
+    try manager.add_separator();
+
+    try testing.expectEqual(@as(u8, 1), manager.count);
+}
+
+test "a menu returns an item by id" {
+    var manager = MenuManager.init();
+    defer manager.deinit();
+
+    try manager.add_action(42, "Test");
+
+    const item = manager.get_item(42);
+
+    try testing.expect(item != null);
+    try testing.expectEqual(@as(u32, 42), item.?.id);
+}
+
+test "a menu returns nothing for an unknown id" {
+    var manager = MenuManager.init();
+    defer manager.deinit();
+
+    try manager.add_action(1, "Test");
+
+    const item = manager.get_item(999);
+
+    try testing.expect(item == null);
+}
+
+test "a menu reports the checked state of an item" {
+    var manager = MenuManager.init();
+    defer manager.deinit();
+
+    try manager.add_toggle(1, "Checked", true);
+    try manager.add_toggle(2, "Unchecked", false);
+
+    try testing.expect(manager.is_checked(1));
+    try testing.expect(!manager.is_checked(2));
+}
+
+test "checking an item updates its state" {
+    var manager = MenuManager.init();
+    defer manager.deinit();
+
+    try manager.add_toggle(1, "Toggle", false);
+
+    try testing.expect(!manager.is_checked(1));
+
+    try manager.set_checked(1, true);
+
+    try testing.expect(manager.is_checked(1));
+}
+
+test "checking an unknown id is reported" {
+    var manager = MenuManager.init();
+    defer manager.deinit();
+
+    const result = manager.set_checked(999, true);
+
+    try testing.expectError(Error.NotFound, result);
+}
+
+test "checking a radio item clears the rest of its group" {
+    var manager = MenuManager.init();
+    defer manager.deinit();
+
+    try manager.add_radio(1, "Option 1", "group", true);
+    try manager.add_radio(2, "Option 2", "group", false);
+
+    try testing.expect(manager.is_checked(1));
+    try testing.expect(!manager.is_checked(2));
+
+    try manager.set_checked(2, true);
+
+    try testing.expect(!manager.is_checked(1));
+    try testing.expect(manager.is_checked(2));
+}
+
+test "enabling an item updates its state" {
+    var manager = MenuManager.init();
+    defer manager.deinit();
+
+    try manager.add_action(1, "Action");
+
+    try manager.set_enabled(1, false);
+
+    const item = manager.get_item(1);
+
+    try testing.expect(item != null);
+    try testing.expect(!item.?.enabled);
+}
+
+test "enabling an unknown id is reported" {
+    var manager = MenuManager.init();
+    defer manager.deinit();
+
+    const result = manager.set_enabled(999, false);
+
+    try testing.expectError(Error.NotFound, result);
+}
+
+test "relabelling through the menu replaces the item label" {
+    var manager = MenuManager.init();
+    defer manager.deinit();
+
+    try manager.add_action(1, "Old");
+
+    try manager.set_label(1, "New");
+
+    const item = manager.get_item(1);
+
+    try testing.expect(item != null);
+    try testing.expectEqualStrings("New", item.?.get_label());
+}
+
+test "hiding an item updates its visibility" {
+    var manager = MenuManager.init();
+    defer manager.deinit();
+
+    try manager.add_action(1, "Action");
+
+    try manager.set_visible(1, false);
+
+    const item = manager.get_item(1);
+
+    try testing.expect(item != null);
+    try testing.expect(!item.?.visible);
+}
+
+test "toggling a toggle item flips it" {
+    var manager = MenuManager.init();
+    defer manager.deinit();
+
+    try manager.add_toggle(1, "Toggle", false);
+
+    const result1 = try manager.toggle_item(1);
+
+    try testing.expect(result1);
+    try testing.expect(manager.is_checked(1));
+
+    const result2 = try manager.toggle_item(1);
+
+    try testing.expect(!result2);
+    try testing.expect(!manager.is_checked(1));
+}
+
+test "toggling a radio item selects it within its group" {
+    var manager = MenuManager.init();
+    defer manager.deinit();
+
+    try manager.add_radio(1, "Option 1", "group", true);
+    try manager.add_radio(2, "Option 2", "group", false);
+
+    _ = try manager.toggle_item(2);
+
+    try testing.expect(!manager.is_checked(1));
+    try testing.expect(manager.is_checked(2));
+}
+
+test "a menu reports the selected radio of a group" {
+    var manager = MenuManager.init();
+    defer manager.deinit();
+
+    try manager.add_radio(1, "Option 1", "group", false);
+    try manager.add_radio(2, "Option 2", "group", true);
+    try manager.add_radio(3, "Option 3", "group", false);
+
+    const selection = manager.get_radio_selection("group");
+
+    try testing.expect(selection != null);
+    try testing.expectEqual(@as(u32, 2), selection.?);
+}
+
+test "a group with no selection reports nothing" {
+    var manager = MenuManager.init();
+    defer manager.deinit();
+
+    try manager.add_radio(1, "Option 1", "group", false);
+    try manager.add_radio(2, "Option 2", "group", false);
+
+    const selection = manager.get_radio_selection("group");
+
+    try testing.expect(selection == null);
+}
+
+test "clearing a menu removes every item" {
+    var manager = MenuManager.init();
+    defer manager.deinit();
+
+    try manager.add_action(1, "Action 1");
+    try manager.add_action(2, "Action 2");
+    try manager.add_action(3, "Action 3");
+
+    try testing.expectEqual(@as(u8, 3), manager.count);
+
+    manager.clear();
+
+    try testing.expect(manager.is_empty());
+    try testing.expectEqual(@as(u8, 0), manager.count);
+}
+
+test "marking a menu dirty raises its flag" {
+    var manager = MenuManager.init();
+    defer manager.deinit();
+
+    manager.dirty = false;
+    manager.mark_dirty();
+
+    try testing.expect(manager.dirty);
 }

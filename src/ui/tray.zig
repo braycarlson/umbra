@@ -1,243 +1,266 @@
 const std = @import("std");
 
-const w32 = @import("win32").everything;
+const icon = @import("icon.zig");
+const platform = @import("../platform.zig");
 
-const runtime = @import("../runtime/root.zig");
-const win32 = @import("../win32/root.zig");
+const assert = std.debug.assert;
 
-const Icon = win32.Icon;
-const Service = runtime.Service;
-const Tray = win32.Tray;
-const TrayEvent = win32.TrayEvent;
+const backend = platform.backend.tray;
 
-pub const tooltip_max: u8 = 128;
+pub const tooltip_max: u32 = 128;
 
-pub const Error = error{
-    BalloonFailed,
-    CreationFailed,
-    InvalidTooltip,
-    NotBound,
-    UpdateFailed,
-};
+pub const IconHandle = icon.Handle;
 
-pub const BalloonIcon = enum(u8) {
-    err = 0,
-    info = 1,
-    none = 2,
-    warning = 3,
+pub const Error = platform.TrayError;
 
-    pub fn to_interface(self: BalloonIcon) win32.TrayBalloonIcon {
-        const result = switch (self) {
-            .err => win32.TrayBalloonIcon.err,
-            .info => win32.TrayBalloonIcon.info,
-            .none => win32.TrayBalloonIcon.none,
-            .warning => win32.TrayBalloonIcon.warning,
-        };
-
-        return result;
-    }
-};
+pub const BalloonIcon = platform.NotificationKind;
 
 pub const Config = struct {
     id: u32 = 1,
     tooltip: []const u8,
 };
 
+comptime {
+    assert(tooltip_max > 1);
+}
+
 pub const TrayManager = struct {
-    hwnd: ?w32.HWND,
+    created: bool,
     id: u32,
-    service: ?*Service,
     tooltip: [tooltip_max]u8,
     tooltip_len: u8,
-    tray: ?Tray,
 
     pub fn init(config: Config) TrayManager {
-        std.debug.assert(config.tooltip.len < tooltip_max);
+        assert(config.tooltip.len < tooltip_max);
 
         var result = TrayManager{
-            .hwnd = null,
+            .created = false,
             .id = config.id,
-            .service = null,
             .tooltip = [_]u8{0} ** tooltip_max,
             .tooltip_len = 0,
-            .tray = null,
         };
 
         if (config.tooltip.len > 0 and config.tooltip.len < tooltip_max) {
-            var index: u8 = 0;
-
-            while (index < config.tooltip.len) : (index += 1) {
-                std.debug.assert(index < tooltip_max);
-
-                result.tooltip[index] = config.tooltip[index];
-            }
-
-            result.tooltip_len = @intCast(config.tooltip.len);
+            copy_tooltip(&result, config.tooltip);
         }
 
-        std.debug.assert(result.tray == null);
+        assert(!result.created);
 
         return result;
     }
 
-    pub fn deinit(self: *TrayManager) void {
-        self.destroy();
-        self.service = null;
-        self.hwnd = null;
+    pub fn deinit(manager: *TrayManager) void {
+        manager.destroy();
 
-        std.debug.assert(self.tray == null);
+        assert(!manager.created);
     }
 
-    pub fn bind(self: *TrayManager, service: *Service) void {
-        self.service = service;
-
-        std.debug.assert(self.service != null);
-    }
-
-    pub fn create(self: *TrayManager, hwnd: w32.HWND, icon: *const Icon) Error!void {
-        self.hwnd = hwnd;
-
-        self.tray = Tray.create(.{
-            .hwnd = hwnd,
-            .icon = icon.*,
-            .id = self.id,
-            .tooltip = self.tooltip[0..self.tooltip_len],
+    pub fn create(manager: *TrayManager, handle: ?IconHandle) Error!void {
+        backend.create(.{
+            .icon = handle,
+            .id = manager.id,
+            .tooltip = manager.tooltip[0..manager.tooltip_len],
         }) catch {
             return Error.CreationFailed;
         };
 
-        std.debug.assert(self.tray != null);
+        manager.created = true;
+
+        assert(manager.created);
     }
 
-    pub fn destroy(self: *TrayManager) void {
-        if (self.tray) |tray| {
-            tray.destroy() catch {};
-            self.tray = null;
+    pub fn destroy(manager: *TrayManager) void {
+        if (!manager.created) {
+            return;
         }
 
-        std.debug.assert(self.tray == null);
+        backend.destroy();
+
+        manager.created = false;
+
+        assert(!manager.created);
     }
 
-    pub fn get_id(self: *const TrayManager) u32 {
-        return self.id;
+    pub fn get_tooltip(manager: *const TrayManager) []const u8 {
+        assert(manager.tooltip_len <= tooltip_max);
+
+        return manager.tooltip[0..manager.tooltip_len];
     }
 
-    pub fn get_tooltip(self: *const TrayManager) []const u8 {
-        std.debug.assert(self.tooltip_len <= tooltip_max);
-
-        const result = self.tooltip[0..self.tooltip_len];
-
-        return result;
-    }
-
-    pub fn handle_message(lparam: w32.LPARAM) ?TrayEvent {
-        const result = TrayEvent.parse(lparam);
-
-        return result;
-    }
-
-    pub fn hide_balloon(self: *TrayManager) Error!void {
-        if (self.tray == null) {
-            return Error.NotBound;
+    pub fn hide_balloon(manager: *TrayManager) Error!void {
+        if (comptime !platform.capabilities.balloon) {
+            @compileError("wisp: hide_balloon requires the balloon capability");
         }
 
-        self.tray.?.hide_balloon() catch {
+        if (!manager.created) {
+            return Error.NotCreated;
+        }
+
+        platform.backend.balloon.hide() catch {
             return Error.BalloonFailed;
         };
     }
 
-    pub fn is_created(self: *const TrayManager) bool {
-        const result = self.tray != null;
-
-        return result;
+    pub fn is_created(manager: *const TrayManager) bool {
+        return manager.created;
     }
 
-    pub fn recreate(self: *TrayManager, icon: *const Icon) Error!void {
-        if (self.hwnd == null) {
-            return Error.NotBound;
-        }
+    pub fn recreate(manager: *TrayManager, handle: ?IconHandle) Error!void {
+        manager.destroy();
 
-        self.destroy();
+        try manager.create(handle);
 
-        try self.create(self.hwnd.?, icon);
-
-        std.debug.assert(self.tray != null);
+        assert(manager.created);
     }
 
-    pub fn set_icon(self: *TrayManager, icon: *const Icon) Error!void {
-        if (self.tray == null) {
-            return Error.NotBound;
+    pub fn set_icon(manager: *TrayManager, handle: IconHandle) Error!void {
+        if (!manager.created) {
+            return Error.NotCreated;
         }
 
-        self.tray.?.set_icon(icon) catch {
+        backend.set_icon(handle) catch {
             return Error.UpdateFailed;
         };
     }
 
-    pub fn set_tooltip(self: *TrayManager, tooltip: []const u8) Error!void {
-        std.debug.assert(tooltip.len < tooltip_max);
-
+    pub fn set_tooltip(manager: *TrayManager, tooltip: []const u8) Error!void {
         if (tooltip.len == 0 or tooltip.len >= tooltip_max) {
             return Error.InvalidTooltip;
         }
 
-        var index: u8 = 0;
+        copy_tooltip(manager, tooltip);
 
-        while (index < tooltip.len) : (index += 1) {
-            std.debug.assert(index < tooltip_max);
-
-            self.tooltip[index] = tooltip[index];
+        if (!manager.created) {
+            return;
         }
 
-        self.tooltip_len = @intCast(tooltip.len);
-
-        if (self.tray) |tray| {
-            tray.set_tooltip(self.tooltip[0..self.tooltip_len]) catch {
-                return Error.UpdateFailed;
-            };
-        }
+        backend.set_tooltip(manager.tooltip[0..manager.tooltip_len]) catch {
+            return Error.UpdateFailed;
+        };
     }
 
-    pub fn show_balloon(self: *TrayManager, title: []const u8, body: []const u8, icon: BalloonIcon) Error!void {
-        std.debug.assert(title.len > 0);
-        std.debug.assert(body.len > 0);
-
-        if (self.tray == null) {
-            return Error.NotBound;
+    pub fn show_balloon(
+        manager: *TrayManager,
+        title: []const u8,
+        body: []const u8,
+        kind: BalloonIcon,
+    ) Error!void {
+        if (comptime !platform.capabilities.balloon) {
+            @compileError("wisp: show_balloon requires the balloon capability");
         }
 
-        self.tray.?.show_balloon(.{
+        assert(title.len > 0);
+        assert(body.len > 0);
+
+        if (!manager.created) {
+            return Error.NotCreated;
+        }
+
+        platform.backend.balloon.show(.{
             .body = body,
-            .icon = icon.to_interface(),
+            .kind = kind,
             .title = title,
         }) catch {
             return Error.BalloonFailed;
         };
     }
 
-    pub fn show_balloon_error(self: *TrayManager, title: []const u8, body: []const u8) Error!void {
-        try self.show_balloon(title, body, .err);
+    pub fn show_balloon_error(
+        manager: *TrayManager,
+        title: []const u8,
+        body: []const u8,
+    ) Error!void {
+        try manager.show_balloon(title, body, .err);
     }
 
-    pub fn show_balloon_info(self: *TrayManager, title: []const u8, body: []const u8) Error!void {
-        try self.show_balloon(title, body, .info);
+    pub fn show_balloon_info(
+        manager: *TrayManager,
+        title: []const u8,
+        body: []const u8,
+    ) Error!void {
+        try manager.show_balloon(title, body, .info);
     }
 
-    pub fn show_balloon_warning(self: *TrayManager, title: []const u8, body: []const u8) Error!void {
-        try self.show_balloon(title, body, .warning);
-    }
-
-    pub fn show_balloon_with_icon(self: *TrayManager, title: []const u8, body: []const u8, custom_icon: *const Icon) Error!void {
-        if (self.tray == null) {
-            return Error.NotBound;
-        }
-
-        self.tray.?.show_balloon(.{
-            .body = body,
-            .custom_icon = custom_icon,
-            .title = title,
-        }) catch {
-            return Error.BalloonFailed;
-        };
+    pub fn show_balloon_warning(
+        manager: *TrayManager,
+        title: []const u8,
+        body: []const u8,
+    ) Error!void {
+        try manager.show_balloon(title, body, .warning);
     }
 };
+
+fn copy_tooltip(manager: *TrayManager, tooltip: []const u8) void {
+    assert(tooltip.len < tooltip_max);
+
+    @memcpy(manager.tooltip[0..tooltip.len], tooltip);
+
+    manager.tooltip_len = @intCast(tooltip.len);
+
+    assert(manager.tooltip_len == tooltip.len);
+}
+
+const testing = std.testing;
+
+test "BalloonIcon is the neutral notification kind" {
+    try testing.expectEqual(platform.NotificationKind, BalloonIcon);
+    try testing.expect(BalloonIcon.err.is_valid());
+    try testing.expect(BalloonIcon.warning.is_valid());
+}
+
+test "a tray carries the tooltip and id it was built from" {
+    const manager = TrayManager.init(.{ .id = 42, .tooltip = "Test Tooltip" });
+
+    try testing.expectEqualStrings("Test Tooltip", manager.get_tooltip());
+    try testing.expectEqual(@as(u32, 42), manager.id);
+    try testing.expect(!manager.is_created());
+}
+
+test "a tray falls back to a default id" {
+    const manager = TrayManager.init(.{ .tooltip = "Test" });
+
+    try testing.expectEqual(@as(u32, 1), manager.id);
+}
+
+test "a tray rejects an empty tooltip" {
+    var manager = TrayManager.init(.{ .tooltip = "Test" });
+    defer manager.deinit();
+
+    try testing.expectError(Error.InvalidTooltip, manager.set_tooltip(""));
+}
+
+test "a tray rejects an oversized tooltip" {
+    var manager = TrayManager.init(.{ .tooltip = "Test" });
+    defer manager.deinit();
+
+    const long = [_]u8{'a'} ** tooltip_max;
+
+    try testing.expectError(Error.InvalidTooltip, manager.set_tooltip(&long));
+}
+
+test "a tooltip set before creation updates local state" {
+    var manager = TrayManager.init(.{ .tooltip = "Old" });
+    defer manager.deinit();
+
+    try manager.set_tooltip("New Tooltip");
+
+    try testing.expectEqualStrings("New Tooltip", manager.get_tooltip());
+}
+
+test "setting an icon requires a created tray" {
+    var manager = TrayManager.init(.{ .tooltip = "Test" });
+    defer manager.deinit();
+
+    const handle = std.mem.zeroes(IconHandle);
+
+    try testing.expectError(Error.NotCreated, manager.set_icon(handle));
+}
+
+test "destroying a tray twice is inert" {
+    var manager = TrayManager.init(.{ .tooltip = "Test" });
+
+    manager.destroy();
+    manager.destroy();
+
+    try testing.expect(!manager.is_created());
+}

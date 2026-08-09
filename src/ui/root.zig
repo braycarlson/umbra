@@ -4,10 +4,13 @@ pub const notification = @import("notification.zig");
 pub const state = @import("state.zig");
 pub const timer = @import("timer.zig");
 pub const tray = @import("tray.zig");
-pub const window = @import("window.zig");
 
 pub const IconManager = icon.IconManager;
+pub const IconEntry = icon.Entry;
+pub const IconHandle = icon.Handle;
+pub const IconPixmap = icon.Pixmap;
 pub const IconSource = icon.Source;
+pub const IconStock = icon.Stock;
 pub const IconError = icon.Error;
 
 pub const MenuManager = menu.MenuManager;
@@ -32,7 +35,3 @@ pub const TrayManager = tray.TrayManager;
 pub const TrayConfig = tray.Config;
 pub const TrayError = tray.Error;
 pub const TrayBalloonIcon = tray.BalloonIcon;
-
-pub const WindowManager = window.WindowManager;
-pub const WindowConfig = window.Config;
-pub const WindowError = window.Error;

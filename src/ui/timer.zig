@@ -1,54 +1,51 @@
 const std = @import("std");
 
-const w32 = @import("win32").everything;
+const platform = @import("../platform.zig");
 
-const runtime = @import("../runtime/root.zig");
-const win32 = @import("../win32/root.zig");
+const assert = std.debug.assert;
 
-const Service = runtime.Service;
-const Timer = win32.Timer;
+const backend = platform.backend.timer;
 
 pub const timer_max: u8 = 16;
 
-pub const Error = error{
-    CapacityExceeded,
-    DuplicateId,
-    NoSlotAvailable,
-    NotBound,
-    NotFound,
-    StartFailed,
-};
+pub const Error = platform.TimerError;
+
+comptime {
+    assert(timer_max > 0);
+}
 
 pub const Handle = struct {
     id: u32,
     manager: *TimerManager,
 
-    pub fn get_tick_count(self: *const Handle) u64 {
-        const result = self.manager.get_tick_count(self.id);
-
-        return result;
+    pub fn get_tick_count(handle: *const Handle) u64 {
+        return handle.manager.get_tick_count(handle.id);
     }
 
-    pub fn reset_tick_count(self: *const Handle) void {
-        self.manager.reset_tick_count(self.id);
+    pub fn reset_tick_count(handle: *const Handle) void {
+        handle.manager.reset_tick_count(handle.id);
     }
 
-    pub fn stop(self: *const Handle) Error!void {
-        try self.manager.stop(self.id);
+    pub fn stop(handle: *const Handle) Error!void {
+        try handle.manager.stop(handle.id);
     }
 };
 
 pub const Entry = struct {
+    id: u32,
+    interval_ms: u32,
     tick_count: u64,
-    timer: Timer,
 
-    pub fn init(options: win32.TimerOptions) Entry {
+    pub fn init(id: u32, interval_ms: u32) Entry {
+        assert(interval_ms > 0);
+
         const result = Entry{
+            .id = id,
+            .interval_ms = interval_ms,
             .tick_count = 0,
-            .timer = Timer.init(options),
         };
 
-        std.debug.assert(result.tick_count == 0);
+        assert(result.tick_count == 0);
 
         return result;
     }
@@ -57,167 +54,132 @@ pub const Entry = struct {
 pub const TimerManager = struct {
     count: u8,
     entries: [timer_max]?Entry,
-    hwnd: ?w32.HWND,
-    service: ?*Service,
 
     pub fn init() TimerManager {
         const result = TimerManager{
             .count = 0,
             .entries = [_]?Entry{null} ** timer_max,
-            .hwnd = null,
-            .service = null,
         };
 
-        std.debug.assert(result.count == 0);
-        std.debug.assert(result.hwnd == null);
+        assert(result.count == 0);
 
         return result;
     }
 
-    pub fn deinit(self: *TimerManager) void {
-        self.stop_all();
+    pub fn deinit(manager: *TimerManager) void {
+        manager.stop_all();
 
-        std.debug.assert(self.count == 0);
+        assert(manager.count == 0);
     }
 
-    pub fn bind(self: *TimerManager, hwnd: w32.HWND) void {
-        self.hwnd = hwnd;
+    pub fn get_interval(manager: *const TimerManager, id: u32) ?u32 {
+        const index = find_index(manager, id) orelse return null;
 
-        std.debug.assert(self.hwnd != null);
+        assert(index < timer_max);
+
+        return manager.entries[index].?.interval_ms;
     }
 
-    pub fn bind_service(self: *TimerManager, service: *Service) void {
-        self.service = service;
+    pub fn get_tick_count(manager: *const TimerManager, id: u32) u64 {
+        const index = find_index(manager, id) orelse return 0;
 
-        std.debug.assert(self.service != null);
+        assert(index < timer_max);
+
+        return manager.entries[index].?.tick_count;
     }
 
-    pub fn get_tick_count(self: *const TimerManager, id: u32) u64 {
-        const index = find_index(self, id) orelse return 0;
+    pub fn handle_tick(manager: *TimerManager, id: u32) u64 {
+        const index = find_index(manager, id) orelse return 0;
 
-        std.debug.assert(index < timer_max);
+        assert(index < timer_max);
 
-        if (self.entries[index]) |*entry| {
+        if (manager.entries[index]) |*entry| {
+            entry.tick_count += 1;
+
             return entry.tick_count;
         }
 
         return 0;
     }
 
-    pub fn handle_tick(self: *TimerManager, timer_id: u32) void {
-        const index = find_index(self, timer_id) orelse return;
-
-        std.debug.assert(index < timer_max);
-
-        if (self.entries[index]) |*entry| {
-            entry.tick_count += 1;
-        }
+    pub fn is_running(manager: *const TimerManager, id: u32) bool {
+        return find_index(manager, id) != null;
     }
 
-    pub fn is_bound(self: *const TimerManager) bool {
-        const result = self.hwnd != null;
+    pub fn reset_tick_count(manager: *TimerManager, id: u32) void {
+        const index = find_index(manager, id) orelse return;
 
-        return result;
-    }
+        assert(index < timer_max);
 
-    pub fn is_running(self: *const TimerManager, id: u32) bool {
-        const index = find_index(self, id) orelse return false;
-
-        std.debug.assert(index < timer_max);
-
-        if (self.entries[index]) |*entry| {
-            return entry.timer.is_running();
-        }
-
-        return false;
-    }
-
-    pub fn reset_tick_count(self: *TimerManager, id: u32) void {
-        const index = find_index(self, id) orelse return;
-
-        std.debug.assert(index < timer_max);
-
-        if (self.entries[index]) |*entry| {
+        if (manager.entries[index]) |*entry| {
             entry.tick_count = 0;
         }
     }
 
-    pub fn start(self: *TimerManager, id: u32, interval_ms: u32) Error!Handle {
-        std.debug.assert(interval_ms > 0);
-
-        if (self.hwnd == null) {
-            return Error.NotBound;
+    pub fn start(timer_manager: *TimerManager, id: u32, interval_ms: u32) Error!Handle {
+        if (interval_ms == 0) {
+            return Error.InvalidInterval;
         }
 
-        if (self.count >= timer_max) {
+        if (timer_manager.count >= timer_max) {
             return Error.CapacityExceeded;
         }
 
-        if (find_index(self, id) != null) {
+        if (find_index(timer_manager, id) != null) {
             return Error.DuplicateId;
         }
 
-        const slot_index = find_empty_slot(self);
+        const slot = find_empty_slot(timer_manager) orelse return Error.NoSlotAvailable;
 
-        if (slot_index == null) {
-            return Error.NoSlotAvailable;
-        }
+        assert(slot < timer_max);
 
-        std.debug.assert(slot_index.? < timer_max);
-
-        var entry = Entry.init(.{
-            .hwnd = self.hwnd,
-            .id = id,
-            .interval_ms = interval_ms,
-        });
-
-        entry.timer.start() catch {
+        backend.start(id, interval_ms) catch {
             return Error.StartFailed;
         };
 
-        self.entries[slot_index.?] = entry;
-        self.count += 1;
+        timer_manager.entries[slot] = Entry.init(id, interval_ms);
+        timer_manager.count += 1;
 
-        std.debug.assert(self.count <= timer_max);
+        assert(timer_manager.count <= timer_max);
 
         const result = Handle{
             .id = id,
-            .manager = self,
+            .manager = timer_manager,
         };
 
         return result;
     }
 
-    pub fn stop(self: *TimerManager, id: u32) Error!void {
-        const index = find_index(self, id) orelse return Error.NotFound;
+    pub fn stop(manager: *TimerManager, id: u32) Error!void {
+        const index = find_index(manager, id) orelse return Error.NotFound;
 
-        std.debug.assert(index < timer_max);
+        assert(index < timer_max);
+        assert(manager.count > 0);
 
-        if (self.entries[index]) |*entry| {
-            entry.timer.stop() catch {};
+        _ = backend.stop(id);
 
-            self.entries[index] = null;
+        manager.entries[index] = null;
+        manager.count -= 1;
 
-            std.debug.assert(self.count > 0);
-
-            self.count -= 1;
-        }
+        assert(manager.entries[index] == null);
     }
 
-    pub fn stop_all(self: *TimerManager) void {
+    pub fn stop_all(manager: *TimerManager) void {
         var index: u8 = 0;
 
         while (index < timer_max) : (index += 1) {
-            if (self.entries[index]) |*entry| {
-                entry.timer.stop() catch {};
+            assert(index < timer_max);
 
-                self.entries[index] = null;
+            if (manager.entries[index]) |entry| {
+                _ = backend.stop(entry.id);
+
+                manager.entries[index] = null;
             }
         }
 
-        self.count = 0;
+        manager.count = 0;
 
-        std.debug.assert(self.count == 0);
+        assert(manager.count == 0);
     }
 };
 
@@ -225,9 +187,9 @@ fn find_empty_slot(manager: *const TimerManager) ?u8 {
     var index: u8 = 0;
 
     while (index < timer_max) : (index += 1) {
-        if (manager.entries[index] == null) {
-            return index;
-        }
+        assert(index < timer_max);
+
+        if (manager.entries[index] == null) return index;
     }
 
     return null;
@@ -237,12 +199,78 @@ fn find_index(manager: *const TimerManager, id: u32) ?u8 {
     var index: u8 = 0;
 
     while (index < timer_max) : (index += 1) {
-        if (manager.entries[index]) |*entry| {
-            if (entry.timer.id == id) {
-                return index;
-            }
+        assert(index < timer_max);
+
+        if (manager.entries[index]) |entry| {
+            if (entry.id == id) return index;
         }
     }
 
     return null;
+}
+
+const testing = std.testing;
+
+test "a fresh timer entry starts at zero ticks" {
+    const entry = Entry.init(1, 1000);
+
+    try testing.expectEqual(@as(u64, 0), entry.tick_count);
+    try testing.expectEqual(@as(u32, 1), entry.id);
+    try testing.expectEqual(@as(u32, 1000), entry.interval_ms);
+}
+
+test "a fresh timer manager holds no timers" {
+    const manager = TimerManager.init();
+
+    try testing.expectEqual(@as(u8, 0), manager.count);
+}
+
+test "an unknown timer id reports no ticks" {
+    const manager = TimerManager.init();
+
+    try testing.expectEqual(@as(u64, 0), manager.get_tick_count(999));
+}
+
+test "an unknown timer id is not running" {
+    const manager = TimerManager.init();
+
+    try testing.expect(!manager.is_running(999));
+}
+
+test "a timer manager rejects a zero interval" {
+    var manager = TimerManager.init();
+    defer manager.deinit();
+
+    try testing.expectError(Error.InvalidInterval, manager.start(1, 0));
+}
+
+test "stopping an unknown timer id is reported" {
+    var manager = TimerManager.init();
+    defer manager.deinit();
+
+    try testing.expectError(Error.NotFound, manager.stop(999));
+}
+
+test "stopping every timer on an empty manager is inert" {
+    var manager = TimerManager.init();
+
+    manager.stop_all();
+
+    try testing.expectEqual(@as(u8, 0), manager.count);
+}
+
+test "a tick for an unknown timer id is ignored" {
+    var manager = TimerManager.init();
+    defer manager.deinit();
+
+    try testing.expectEqual(@as(u64, 0), manager.handle_tick(999));
+}
+
+test "resetting an unknown timer id is ignored" {
+    var manager = TimerManager.init();
+    defer manager.deinit();
+
+    manager.reset_tick_count(999);
+
+    try testing.expectEqual(@as(u8, 0), manager.count);
 }

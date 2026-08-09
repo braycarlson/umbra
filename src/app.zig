@@ -1,17 +1,16 @@
 const std = @import("std");
 
-const w32 = @import("win32").everything;
-
 const event = @import("event/root.zig");
+const platform = @import("platform.zig");
 const runtime = @import("runtime/root.zig");
 const ui = @import("ui/root.zig");
-const win32 = @import("win32/root.zig");
+
+const assert = std.debug.assert;
 
 const Bus = event.Bus;
 const Event = event.Event;
 const Lifecycle = runtime.Lifecycle;
 const Response = event.Response;
-const Service = runtime.Service;
 
 const IconManager = ui.IconManager;
 const MenuManager = ui.MenuManager;
@@ -20,19 +19,19 @@ const StateManager = ui.StateManager;
 const TimerManager = ui.TimerManager;
 const TrayManager = ui.TrayManager;
 
-const Icon = win32.Icon;
-const Tray = win32.Tray;
-const TrayEvent = win32.TrayEvent;
-const Window = win32.Window;
-
-pub const name_max: u8 = 64;
+pub const name_max: u32 = 64;
+pub const tray_retry_attempt_max: u32 = 60;
+pub const tray_retry_interval_ms: u32 = 1000;
+pub const tray_retry_timer_id: u32 = std.math.maxInt(u32);
 
 pub const Error = error{
-    AlreadyRunning,
     IconLoadFailed,
+    InvalidName,
     InvalidState,
-    TrayCreationFailed,
-    WindowCreationFailed,
+    InvalidTooltip,
+    LoopFailed,
+    MenuBuildFailed,
+    RuntimeOpenFailed,
 };
 
 pub const Config = struct {
@@ -41,370 +40,522 @@ pub const Config = struct {
     tooltip: []const u8 = "",
 };
 
+comptime {
+    assert(name_max > 1);
+    assert(tray_retry_attempt_max > 0);
+    assert(tray_retry_interval_ms > 0);
+    assert(tray_retry_timer_id > 0);
+}
+
 pub const App = struct {
     bus: Bus,
-    config: Config,
     icon: IconManager,
     lifecycle: Lifecycle,
     menu: MenuManager,
-    name_wide: [name_max]u16,
+    name: [name_max]u8,
+    name_len: u8,
     notification: NotificationManager,
-    service: Service,
     state: StateManager,
     timer: TimerManager,
     tray: TrayManager,
-    window: ?Window,
+    tray_failures: u32,
+    tray_retry_count: u32,
 
-    pub fn init(self: *App, config: Config) void {
-        std.debug.assert(config.name.len > 0);
-        std.debug.assert(config.name.len < name_max);
-
-        const tooltip = if (config.tooltip.len > 0) config.tooltip else config.name;
-
-        self.* = App{
-            .bus = Bus.init(),
-            .config = config,
-            .icon = IconManager.init(),
-            .lifecycle = Lifecycle.init(),
-            .menu = MenuManager.init(),
-            .name_wide = undefined,
-            .notification = NotificationManager.init(),
-            .service = undefined,
-            .state = StateManager.init(),
-            .timer = TimerManager.init(),
-            .tray = TrayManager.init(.{ .tooltip = tooltip }),
-            .window = null,
-        };
-
-        self.service = Service.init(&self.bus);
-
-        const length = std.unicode.utf8ToUtf16Le(&self.name_wide, config.name) catch 0;
-
-        if (length < name_max) {
-            self.name_wide[length] = 0;
+    pub fn init(app: *App, config: Config) Error!void {
+        if (config.name.len == 0 or config.name.len >= name_max) {
+            return Error.InvalidName;
         }
 
-        if (config.initial_state.len > 0) {
-            std.debug.assert(config.initial_state.len < ui.state.state_max);
-
-            self.state.set(config.initial_state) catch unreachable;
+        if (!std.unicode.utf8ValidateSlice(config.name)) {
+            return Error.InvalidName;
         }
 
-        std.debug.assert(self.lifecycle.stage == .created);
-    }
-
-    pub fn deinit(self: *App) void {
-        self.timer.deinit();
-        self.menu.deinit();
-        self.tray.deinit();
-        self.icon.deinit();
-
-        if (self.window) |window| {
-            _ = window.destroy();
-            self.window = null;
+        if (config.tooltip.len >= ui.tray.tooltip_max) {
+            return Error.InvalidTooltip;
         }
 
-        self.bus.deinit();
-        self.state.deinit();
-        self.notification.deinit();
-
-        self.lifecycle.force_stop();
-
-        std.debug.assert(self.window == null);
-        std.debug.assert(self.lifecycle.stage == .stopped);
-    }
-
-    pub fn configure(self: *App) *App {
-        _ = self.lifecycle.transition(.configured);
-
-        std.debug.assert(self.lifecycle.stage == .configured);
-
-        return self;
-    }
-
-    pub fn event_bus(self: *App) *Bus {
-        return &self.bus;
-    }
-
-    pub fn get_hwnd(self: *const App) ?w32.HWND {
-        if (self.window) |window| {
-            return window.handle;
-        }
-
-        return null;
-    }
-
-    pub fn get_icon(self: *App) *IconManager {
-        return &self.icon;
-    }
-
-    pub fn get_instance(self: *const App) w32.HINSTANCE {
-        return self.service.instance;
-    }
-
-    pub fn get_menu(self: *App) *MenuManager {
-        return &self.menu;
-    }
-
-    pub fn get_notification(self: *App) *NotificationManager {
-        return &self.notification;
-    }
-
-    pub fn get_state(self: *App) *StateManager {
-        return &self.state;
-    }
-
-    pub fn get_timer(self: *App) *TimerManager {
-        return &self.timer;
-    }
-
-    pub fn get_tray(self: *App) *TrayManager {
-        return &self.tray;
-    }
-
-    pub fn is_running(self: *const App) bool {
-        const result = self.lifecycle.is_running();
-
-        return result;
-    }
-
-    pub fn post_message(self: *const App, message: u32, wparam: w32.WPARAM, lparam: w32.LPARAM) bool {
-        if (self.window) |window| {
-            const result = window.post(message, wparam, lparam);
-
-            return result;
-        }
-
-        return false;
-    }
-
-    pub fn quit(self: *App) void {
-        win32.Loop.quit();
-
-        _ = self.lifecycle.transition(.stopping);
-    }
-
-    pub fn run(self: *App) Error!void {
-        if (self.lifecycle.stage != .configured) {
+        if (config.initial_state.len >= ui.state.state_max) {
             return Error.InvalidState;
         }
 
-        bind_services(self);
+        const tooltip = if (config.tooltip.len > 0) config.tooltip else config.name;
 
-        const name_pointer: [*:0]const u16 = @ptrCast(&self.name_wide);
-        const name_slice_len = std.mem.indexOfScalar(u16, &self.name_wide, 0) orelse 0;
-
-        std.debug.assert(name_slice_len > 0);
-
-        const window_config = win32.WindowConfig{
-            .callback = @ptrCast(&window_callback),
-            .context = self,
-            .instance = self.service.instance,
-            .name = name_pointer[0..name_slice_len :0],
+        app.* = App{
+            .bus = Bus.init(),
+            .icon = IconManager.init(),
+            .lifecycle = Lifecycle.init(),
+            .menu = MenuManager.init(),
+            .name = [_]u8{0} ** name_max,
+            .name_len = @intCast(config.name.len),
+            .notification = NotificationManager.init(),
+            .state = StateManager.init(),
+            .timer = TimerManager.init(),
+            .tray = TrayManager.init(.{ .tooltip = tooltip }),
+            .tray_failures = 0,
+            .tray_retry_count = 0,
         };
 
-        self.window = Window.create(&window_config) catch {
-            return Error.WindowCreationFailed;
-        };
+        @memcpy(app.name[0..config.name.len], config.name);
 
-        std.debug.assert(self.window != null);
+        app.icon.bind(&app.bus);
+        app.state.bind(&app.bus);
 
-        const hwnd = self.window.?.handle;
-
-        self.service.bind_window(hwnd, self.service.instance);
-
-        if (!self.icon.load(self.service.instance)) {
-            return Error.IconLoadFailed;
+        if (config.initial_state.len > 0) {
+            app.state.set(config.initial_state) catch {
+                return Error.InvalidState;
+            };
         }
 
-        const current_icon = self.icon.get_current() orelse {
+        assert(app.lifecycle.stage == .created);
+    }
+
+    pub fn deinit(app: *App) void {
+        app.timer.deinit();
+        app.menu.deinit();
+        app.tray.deinit();
+        app.icon.deinit();
+        app.bus.deinit();
+        app.state.deinit();
+        app.notification.deinit();
+
+        app.lifecycle.force_stop();
+
+        assert(app.lifecycle.stage == .stopped);
+    }
+
+    pub fn configure(app: *App) *App {
+        _ = app.lifecycle.transition(.configured);
+
+        assert(app.lifecycle.stage == .configured);
+
+        return app;
+    }
+
+    pub fn get_name(app: *const App) []const u8 {
+        assert(app.name_len > 0);
+        assert(app.name_len < name_max);
+
+        return app.name[0..app.name_len];
+    }
+
+    pub fn is_running(app: *const App) bool {
+        return app.lifecycle.is_running();
+    }
+
+    pub fn quit(app: *App) void {
+        platform.backend.loop.quit();
+
+        _ = app.lifecycle.transition(.stopping);
+    }
+
+    pub fn dispatch(app: *App, incoming: *const Event) Response {
+        assert(incoming.kind().is_valid());
+
+        const response = switch (incoming.payload) {
+            .menu_select => |payload| app.on_menu_select(payload.id),
+            .taskbar_restart => app.on_taskbar_restart(),
+            .timer_tick => |payload| app.on_timer_tick(payload.id),
+            else => app.emit(incoming),
+        };
+
+        return response;
+    }
+
+    pub fn run(app: *App) Error!void {
+        if (app.lifecycle.stage != .configured) {
+            return Error.InvalidState;
+        }
+
+        platform.backend.runtime.open(.{ .name = app.get_name() }) catch {
+            return Error.RuntimeOpenFailed;
+        };
+
+        defer platform.backend.runtime.close();
+
+        app.icon.load() catch {
             return Error.IconLoadFailed;
         };
 
-        self.tray.create(hwnd, current_icon) catch {
-            return Error.TrayCreationFailed;
+        const handle = app.icon.get_current() orelse return Error.IconLoadFailed;
+
+        app.tray.create(handle) catch {
+            app.tray_failures += 1;
         };
 
-        self.timer.bind(hwnd);
-        self.notification.bind(hwnd, self.tray.get_id());
+        defer app.tray.destroy();
 
-        _ = self.lifecycle.transition(.running);
+        app.menu.build() catch {
+            return Error.MenuBuildFailed;
+        };
 
-        std.debug.assert(self.lifecycle.is_running());
+        _ = app.lifecycle.transition(.running);
 
-        const init_event = Event.app_init();
+        assert(app.lifecycle.is_running());
 
-        _ = self.bus.emit(&init_event);
+        app.start_tray_retry();
 
-        win32.Loop.run();
+        const started = Event.app_init();
 
-        _ = self.lifecycle.transition(.stopping);
+        _ = app.emit(&started);
 
-        const shutdown_event = Event.app_shutdown();
+        var instance = platform.backend.loop.LoopType(App).init();
 
-        _ = self.bus.emit(&shutdown_event);
+        instance.run(app) catch {
+            return Error.LoopFailed;
+        };
+
+        _ = app.lifecycle.transition(.stopping);
+
+        const stopped = Event.app_shutdown();
+
+        _ = app.emit(&stopped);
+    }
+
+    fn emit(app: *App, outgoing: *const Event) Response {
+        const response = app.bus.emit(outgoing);
+
+        if (response.should_quit()) {
+            app.quit();
+        }
+
+        return response;
+    }
+
+    fn on_menu_select(app: *App, id: u32) Response {
+        const item = app.menu.get_item(id);
+        const checked = if (item) |value| value.checked else false;
+
+        const selected = Event.menu_select(id, checked);
+        const response = app.emit(&selected);
+
+        return response;
+    }
+
+    fn on_taskbar_restart(app: *App) Response {
+        const handle = app.icon.get_current();
+
+        app.tray.recreate(handle) catch {
+            app.tray_failures += 1;
+        };
+
+        const restarted = Event.taskbar_restart();
+        const response = app.emit(&restarted);
+
+        return response;
+    }
+
+    fn on_timer_tick(app: *App, id: u32) Response {
+        if (id == tray_retry_timer_id) {
+            const retried = app.on_tray_retry();
+
+            return retried;
+        }
+
+        const tick_count = app.timer.handle_tick(id);
+
+        const ticked = Event.timer_tick(id, tick_count);
+        const response = app.emit(&ticked);
+
+        return response;
+    }
+
+    fn on_tray_retry(app: *App) Response {
+        assert(app.tray_retry_count < tray_retry_attempt_max);
+
+        _ = app.timer.handle_tick(tray_retry_timer_id);
+
+        if (app.tray.is_created()) {
+            app.stop_tray_retry();
+
+            return .pass;
+        }
+
+        app.tray_retry_count += 1;
+
+        const handle = app.icon.get_current();
+
+        app.tray.recreate(handle) catch {
+            app.tray_failures += 1;
+        };
+
+        if (app.tray.is_created() or app.tray_retry_count >= tray_retry_attempt_max) {
+            app.stop_tray_retry();
+        }
+
+        return .pass;
+    }
+
+    fn start_tray_retry(app: *App) void {
+        if (app.tray.is_created()) {
+            return;
+        }
+
+        assert(app.tray_failures > 0);
+
+        _ = app.timer.start(tray_retry_timer_id, tray_retry_interval_ms) catch {
+            return;
+        };
+    }
+
+    fn stop_tray_retry(app: *App) void {
+        assert(app.timer.is_running(tray_retry_timer_id));
+
+        app.timer.stop(tray_retry_timer_id) catch {
+            return;
+        };
     }
 };
 
-fn bind_services(app: *App) void {
-    app.service.bus = &app.bus;
+const testing = std.testing;
 
-    app.icon.bind(&app.service);
-    app.menu.bind(&app.service);
-    app.notification.bind_service(&app.service);
-    app.state.bind(&app.service);
-    app.timer.bind_service(&app.service);
-    app.tray.bind(&app.service);
+const Stage = runtime.Stage;
+
+test "an application carries the name it was built from" {
+    var app: App = undefined;
+
+    try app.init(.{ .name = "TestApp" });
+    defer app.deinit();
+
+    try testing.expectEqualStrings("TestApp", app.get_name());
+    try testing.expectEqual(Stage.created, app.lifecycle.stage);
 }
 
-fn handle_message(app: *App, hwnd: w32.HWND, message: u32, wparam: w32.WPARAM, lparam: w32.LPARAM) w32.LRESULT {
-    if (app.window) |window| {
-        if (message == window.msg_taskbar) {
-            handle_taskbar_restart(app);
+test "an application rejects an empty name" {
+    var app: App = undefined;
 
-            return 0;
+    try testing.expectError(Error.InvalidName, app.init(.{ .name = "" }));
+}
+
+test "an application rejects an oversized name" {
+    var app: App = undefined;
+
+    const long = [_]u8{'a'} ** name_max;
+
+    try testing.expectError(Error.InvalidName, app.init(.{ .name = &long }));
+}
+
+test "an application rejects a name that is not valid utf8" {
+    var app: App = undefined;
+
+    const invalid = [_]u8{ 0xC3, 0x28 };
+
+    try testing.expectError(Error.InvalidName, app.init(.{ .name = &invalid }));
+}
+
+test "an application rejects an oversized initial state" {
+    var app: App = undefined;
+
+    const long = [_]u8{'a'} ** ui.state.state_max;
+
+    try testing.expectError(
+        Error.InvalidState,
+        app.init(.{ .name = "TestApp", .initial_state = &long }),
+    );
+}
+
+test "a fresh application starts with empty managers" {
+    var app: App = undefined;
+
+    try app.init(.{ .name = "TestApp" });
+    defer app.deinit();
+
+    try testing.expectEqual(@as(u8, 0), app.bus.handler_count());
+    try testing.expect(app.icon.is_empty());
+    try testing.expect(app.menu.is_empty());
+    try testing.expect(app.state.is_empty());
+}
+
+test "an application falls back to its name for the tooltip" {
+    var app: App = undefined;
+
+    try app.init(.{ .name = "MyApp" });
+    defer app.deinit();
+
+    try testing.expectEqualStrings("MyApp", app.tray.get_tooltip());
+}
+
+test "an application rejects an oversized tooltip" {
+    var app: App = undefined;
+
+    const long = [_]u8{'a'} ** ui.tray.tooltip_max;
+
+    try testing.expectError(Error.InvalidTooltip, app.init(.{ .name = "MyApp", .tooltip = &long }));
+}
+
+test "an application copies the name into storage of its own" {
+    var app: App = undefined;
+
+    var caller: [8]u8 = undefined;
+
+    @memcpy(caller[0.."Borrowed".len], "Borrowed");
+
+    try app.init(.{ .name = caller[0.."Borrowed".len] });
+    defer app.deinit();
+
+    @memset(&caller, 'x');
+
+    try testing.expectEqualStrings("Borrowed", app.get_name());
+}
+
+test "an application keeps a tooltip it is given" {
+    var app: App = undefined;
+
+    try app.init(.{ .name = "MyApp", .tooltip = "Custom Tooltip" });
+    defer app.deinit();
+
+    try testing.expectEqualStrings("Custom Tooltip", app.tray.get_tooltip());
+}
+
+test "an application applies the initial state it is given" {
+    var app: App = undefined;
+
+    try app.init(.{ .name = "TestApp", .initial_state = "idle" });
+    defer app.deinit();
+
+    try testing.expectEqualStrings("idle", app.state.get());
+}
+
+test "configuring an application transitions the stage and chains" {
+    var app: App = undefined;
+
+    try app.init(.{ .name = "TestApp" });
+    defer app.deinit();
+
+    const chained = app.configure();
+
+    try testing.expectEqual(Stage.configured, app.lifecycle.stage);
+    try testing.expectEqual(&app, chained);
+}
+
+test "an application is not running before it is run" {
+    var app: App = undefined;
+
+    try app.init(.{ .name = "TestApp" });
+    defer app.deinit();
+
+    try testing.expect(!app.is_running());
+}
+
+test "an unconfigured application refuses to run" {
+    var app: App = undefined;
+
+    try app.init(.{ .name = "TestApp" });
+    defer app.deinit();
+
+    try testing.expectError(Error.InvalidState, app.run());
+}
+
+test "tearing down an application lands in the stopped stage" {
+    var app: App = undefined;
+
+    try app.init(.{ .name = "TestApp" });
+
+    app.deinit();
+
+    try testing.expectEqual(Stage.stopped, app.lifecycle.stage);
+}
+
+test "a neutral event is forwarded to the bus" {
+    var app: App = undefined;
+
+    try app.init(.{ .name = "TestApp" });
+    defer app.deinit();
+
+    const Sink = struct {
+        var seen: u32 = 0;
+
+        fn handle(_: *const Event, _: ?*anyopaque) Response {
+            seen += 1;
+
+            return .pass;
         }
-    }
+    };
 
-    if (message == win32.tray.message) {
-        handle_tray_message(app, hwnd, lparam);
+    Sink.seen = 0;
 
-        return 0;
-    }
+    _ = app.bus.on(.tray_left_click, Sink.handle, null);
 
-    switch (message) {
-        w32.WM_TIMER => {
-            const timer_id: u32 = @intCast(wparam);
+    const clicked = Event.tray_left_click();
 
-            app.timer.handle_tick(timer_id);
-
-            const tick = app.timer.get_tick_count(timer_id);
-            const e = Event.timer_tick(timer_id, tick);
-            const response = app.bus.emit(&e);
-
-            if (response.should_quit()) {
-                app.quit();
-            }
-
-            return 0;
-        },
-        w32.WM_DESTROY => {
-            win32.Loop.quit();
-
-            return 0;
-        },
-        else => {
-            const e = Event.window_message(message, wparam, lparam);
-            const response = app.bus.emit(&e);
-
-            if (response == .handled) {
-                return 0;
-            }
-
-            if (response.should_quit()) {
-                app.quit();
-
-                return 0;
-            }
-        },
-    }
-
-    const result = w32.DefWindowProcW(hwnd, message, wparam, lparam);
-
-    return result;
+    try testing.expectEqual(Response.pass, app.dispatch(&clicked));
+    try testing.expectEqual(@as(u32, 1), Sink.seen);
 }
 
-fn handle_taskbar_restart(app: *App) void {
-    const current_icon = app.icon.get_current() orelse return;
+test "a dispatched menu event carries the checked flag from the menu" {
+    var app: App = undefined;
 
-    app.tray.recreate(current_icon) catch return;
+    try app.init(.{ .name = "TestApp" });
+    defer app.deinit();
 
-    const e = Event.taskbar_restart();
-    _ = app.bus.emit(&e);
-}
+    try app.menu.add_toggle(7, "Enabled", true);
 
-fn handle_tray_message(app: *App, hwnd: w32.HWND, lparam: w32.LPARAM) void {
-    const tray_event = TrayEvent.parse(lparam) orelse return;
+    const Sink = struct {
+        var checked: bool = false;
 
-    switch (tray_event) {
-        .left_click => {
-            const e = Event.tray_left_click();
-            const response = app.bus.emit(&e);
+        fn handle(incoming: *const Event, _: ?*anyopaque) Response {
+            checked = incoming.payload.menu_select.checked;
 
-            if (response.should_quit()) {
-                app.quit();
-            }
-        },
-        .left_double_click => {
-            const e = Event.tray_double_click();
-            const response = app.bus.emit(&e);
-
-            if (response.should_quit()) {
-                app.quit();
-            }
-        },
-        .context_menu => {
-            show_context_menu(app, hwnd);
-        },
-        .right_click => {
-            const e = Event.tray_right_click();
-            const response = app.bus.emit(&e);
-
-            if (response.should_quit()) {
-                app.quit();
-            }
-        },
-        .balloon_click,
-        .balloon_hide,
-        .balloon_show,
-        .balloon_timeout,
-        .key_select,
-        .left_button_down,
-        .middle_button_down,
-        .middle_button_up,
-        .middle_double_click,
-        .mouse_move,
-        .popup_close,
-        .popup_open,
-        .right_button_down,
-        .right_double_click,
-        .select,
-        => {},
-    }
-}
-
-fn show_context_menu(app: *App, hwnd: w32.HWND) void {
-    const show_ev = Event.menu_show();
-
-    _ = app.bus.emit(&show_ev);
-
-    const result = app.menu.show(hwnd);
-
-    if (result) |id| {
-        const item = app.menu.get_item(id);
-        var checked = false;
-
-        if (item) |it| {
-            checked = it.checked;
+            return .pass;
         }
+    };
 
-        const menu_ev = Event.menu_select(id, checked);
-        const menu_response = app.bus.emit(&menu_ev);
+    Sink.checked = false;
 
-        if (menu_response.should_quit()) {
-            app.quit();
-        }
-    }
+    _ = app.bus.on(.menu_select, Sink.handle, null);
+
+    const selected = Event.menu_select(7, false);
+
+    _ = app.dispatch(&selected);
+
+    try testing.expect(Sink.checked);
 }
 
-fn window_callback(hwnd: w32.HWND, message: u32, wparam: w32.WPARAM, lparam: w32.LPARAM) callconv(.c) w32.LRESULT {
-    const app_pointer = Window.context(App, hwnd);
+test "dispatched timer ticks are counted" {
+    var app: App = undefined;
 
-    if (app_pointer) |app| {
-        return handle_message(app, hwnd, message, wparam, lparam);
-    }
+    try app.init(.{ .name = "TestApp" });
+    defer app.deinit();
 
-    const result = w32.DefWindowProcW(hwnd, message, wparam, lparam);
+    const Sink = struct {
+        var last: u64 = 0;
 
-    return result;
+        fn handle(incoming: *const Event, _: ?*anyopaque) Response {
+            last = incoming.payload.timer_tick.tick_count;
+
+            return .pass;
+        }
+    };
+
+    Sink.last = 0;
+
+    _ = app.bus.on(.timer_tick, Sink.handle, null);
+
+    const ticked = Event.timer_tick(3, 0);
+
+    _ = app.dispatch(&ticked);
+
+    try testing.expectEqual(@as(u64, 0), Sink.last);
+}
+
+test "a quit response ends the dispatch loop" {
+    var app: App = undefined;
+
+    try app.init(.{ .name = "TestApp" });
+    defer app.deinit();
+
+    _ = app.configure();
+    _ = app.lifecycle.transition(.running);
+
+    const Sink = struct {
+        fn handle(_: *const Event, _: ?*anyopaque) Response {
+            return .quit;
+        }
+    };
+
+    _ = app.bus.on(.tray_left_click, Sink.handle, null);
+
+    const clicked = Event.tray_left_click();
+
+    try testing.expectEqual(Response.quit, app.dispatch(&clicked));
+    try testing.expectEqual(Stage.stopping, app.lifecycle.stage);
 }
