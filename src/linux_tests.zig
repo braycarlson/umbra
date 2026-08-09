@@ -1,7 +1,10 @@
 test {
     _ = @import("platform/linux/dbus/client.zig");
+    _ = @import("platform/linux/dbus/client_fuzz.zig");
     _ = @import("platform/linux/dbus/variant.zig");
     _ = @import("platform/linux/dbus/wire.zig");
+    _ = @import("platform/linux/dbus/wire_fuzz.zig");
+    _ = @import("platform/linux/dispatch_fuzz.zig");
     _ = @import("platform/linux/icon.zig");
     _ = @import("platform/linux/loop.zig");
     _ = @import("platform/linux/menu.zig");

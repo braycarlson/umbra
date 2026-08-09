@@ -6,9 +6,6 @@ test {
     _ = @import("event/types.zig");
     _ = @import("fuzz_tests.zig");
     _ = @import("platform/contract.zig");
-    _ = @import("platform/linux/dbus/client_fuzz.zig");
-    _ = @import("platform/linux/dbus/wire_fuzz.zig");
-    _ = @import("platform/linux/dispatch_fuzz.zig");
     _ = @import("runtime/lifecycle.zig");
     _ = @import("runtime/lifecycle_fuzz.zig");
     _ = @import("testing/fuzz.zig");
