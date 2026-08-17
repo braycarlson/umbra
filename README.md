@@ -1,4 +1,12 @@
-<h1 align="center">umbra</h1>
+<p align="center">
+    <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="assets/umbra-lockup-on-dark.svg">
+        <source media="(prefers-color-scheme: light)" srcset="assets/umbra-lockup-on-light.svg">
+        <img alt="umbra" src="assets/umbra-lockup-on-light.svg" width="375">
+    </picture>
+</p>
+
+&nbsp;
 
 <p align="center">
     A system tray application framework for Windows and Linux.
