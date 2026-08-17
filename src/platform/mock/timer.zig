@@ -150,7 +150,7 @@ const testing = std.testing;
 fn open_runtime() !void {
     runtime.reset();
 
-    try runtime.open(.{ .name = "wisp" });
+    try runtime.open(.{ .name = "umbra" });
 }
 
 test "start requires an open runtime" {

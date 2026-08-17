@@ -98,19 +98,19 @@ const testing = std.testing;
 test "open records the name and marks the runtime open" {
     reset();
 
-    try open(.{ .name = "wisp" });
+    try open(.{ .name = "umbra" });
 
     try testing.expect(is_open());
-    try testing.expectEqualStrings("wisp", opened_name());
+    try testing.expectEqualStrings("umbra", opened_name());
     try testing.expectEqual(@as(u32, 1), counts().opened);
 }
 
 test "open rejects a second call" {
     reset();
 
-    try open(.{ .name = "wisp" });
+    try open(.{ .name = "umbra" });
 
-    try testing.expectError(Error.AlreadyOpen, open(.{ .name = "wisp" }));
+    try testing.expectError(Error.AlreadyOpen, open(.{ .name = "umbra" }));
 }
 
 test "open rejects an empty name" {
@@ -131,14 +131,14 @@ test "open honors the injected failure" {
     reset();
     set_fail_open(true);
 
-    try testing.expectError(Error.OpenFailed, open(.{ .name = "wisp" }));
+    try testing.expectError(Error.OpenFailed, open(.{ .name = "umbra" }));
     try testing.expect(!is_open());
 }
 
 test "close is idempotent" {
     reset();
 
-    try open(.{ .name = "wisp" });
+    try open(.{ .name = "umbra" });
 
     close();
     close();

@@ -89,7 +89,7 @@ pub const TrayManager = struct {
 
     pub fn hide_balloon(manager: *TrayManager) Error!void {
         if (comptime !platform.capabilities.balloon) {
-            @compileError("wisp: hide_balloon requires the balloon capability");
+            @compileError("umbra: hide_balloon requires the balloon capability");
         }
 
         if (!manager.created) {
@@ -146,7 +146,7 @@ pub const TrayManager = struct {
         kind: BalloonIcon,
     ) Error!void {
         if (comptime !platform.capabilities.balloon) {
-            @compileError("wisp: show_balloon requires the balloon capability");
+            @compileError("umbra: show_balloon requires the balloon capability");
         }
 
         assert(title.len > 0);

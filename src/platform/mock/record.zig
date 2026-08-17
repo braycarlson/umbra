@@ -69,10 +69,10 @@ test "a fresh recorded text starts blank" {
 test "recorded text stores and reads back" {
     var text = Text.empty();
 
-    text.set("wisp");
+    text.set("umbra");
 
-    try testing.expectEqualStrings("wisp", text.get());
-    try testing.expect(text.equals("wisp"));
+    try testing.expectEqualStrings("umbra", text.get());
+    try testing.expect(text.equals("umbra"));
     try testing.expect(!text.equals("other"));
 }
 

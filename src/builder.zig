@@ -57,7 +57,7 @@ pub const IconBuilder = struct {
 
     pub fn resource(builder: IconBuilder, name: []const u8, id: u32) IconBuilder {
         if (comptime !platform.capabilities.icon_resource) {
-            @compileError("wisp: IconBuilder.resource requires the icon_resource capability");
+            @compileError("umbra: IconBuilder.resource requires the icon_resource capability");
         }
 
         assert(name.len > 0);

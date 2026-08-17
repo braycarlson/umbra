@@ -62,11 +62,11 @@ test "every capability is available on the mock backend" {
 test "reset clears every module tape" {
     reset();
 
-    try runtime.open(.{ .name = "wisp" });
+    try runtime.open(.{ .name = "umbra" });
 
     const handle = try icon.load(.{ .stock = .application });
 
-    try tray.create(.{ .icon = handle, .id = 1, .tooltip = "wisp" });
+    try tray.create(.{ .icon = handle, .id = 1, .tooltip = "umbra" });
     try notification.send(.{ .body = "b", .title = "t" });
     try timer.start(1, 100);
     try loop.push(@import("../event/types.zig").Event.app_init());

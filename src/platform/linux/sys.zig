@@ -279,7 +279,7 @@ test "getenv finds a variable the kernel exported" {
     reset_environ();
 
     const path = getenv("PATH");
-    const missing = getenv("WISP_DEFINITELY_NOT_SET_1234");
+    const missing = getenv("UMBRA_DEFINITELY_NOT_SET_1234");
 
     try testing.expect(missing == null);
 

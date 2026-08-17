@@ -52,25 +52,25 @@ pub fn build(b: *std.Build) void {
 
     const options = b.addOptions();
 
-    options.addOption([]const u8, "library", "wisp");
+    options.addOption([]const u8, "library", "umbra");
     options.addOption(bool, "backend_mock", backend == .mock);
 
     const build_options = options.createModule();
 
     const mock_options = b.addOptions();
 
-    mock_options.addOption([]const u8, "library", "wisp");
+    mock_options.addOption([]const u8, "library", "umbra");
     mock_options.addOption(bool, "backend_mock", true);
 
     const mock_build_options = mock_options.createModule();
 
-    const wisp = b.addModule("wisp", .{
+    const umbra = b.addModule("umbra", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimize,
     });
 
-    wisp.addImport("build_options", build_options);
+    umbra.addImport("build_options", build_options);
 
     add_format(b, &steps);
     add_unit_tests(b, &steps, mock_build_options, optimize);
@@ -78,7 +78,7 @@ pub fn build(b: *std.Build) void {
     add_linux_tests(b, &steps, build_options, optimize);
     add_windows_tests(b, &steps, build_options, target, optimize);
     add_fuzz(b, &steps, mock_build_options, optimize);
-    add_examples(b, &steps, wisp, target, optimize);
+    add_examples(b, &steps, umbra, target, optimize);
 
     steps.ci.dependOn(steps.test_fmt);
     steps.ci.dependOn(steps.check);
@@ -263,21 +263,21 @@ fn add_fuzz(
 fn add_examples(
     b: *std.Build,
     steps: *const Steps,
-    wisp: *std.Build.Module,
+    umbra: *std.Build.Module,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
 ) void {
-    add_example_directory(b, steps, wisp, target, optimize, example_directory);
+    add_example_directory(b, steps, umbra, target, optimize, example_directory);
 
     if (target.result.os.tag == .windows) {
-        add_example_directory(b, steps, wisp, target, optimize, example_directory_windows);
+        add_example_directory(b, steps, umbra, target, optimize, example_directory_windows);
     }
 }
 
 fn add_example_directory(
     b: *std.Build,
     steps: *const Steps,
-    wisp: *std.Build.Module,
+    umbra: *std.Build.Module,
     target: std.Build.ResolvedTarget,
     optimize: std.builtin.OptimizeMode,
     comptime directory: []const u8,
@@ -307,7 +307,7 @@ fn add_example_directory(
             .root_source_file = b.path(path),
             .target = target,
             .optimize = optimize,
-            .imports = &.{.{ .name = "wisp", .module = wisp }},
+            .imports = &.{.{ .name = "umbra", .module = umbra }},
         });
 
         const exe = b.addExecutable(.{

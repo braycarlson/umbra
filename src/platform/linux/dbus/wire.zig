@@ -696,12 +696,12 @@ test "Writer round trips strings and signatures" {
     var storage: [64]u8 = undefined;
     var writer = Writer.init(&storage);
 
-    try writer.put_string("wisp");
+    try writer.put_string("umbra");
     try writer.put_signature("sa{sv}");
 
     var reader = Reader.init(writer.bytes());
 
-    try testing.expectEqualStrings("wisp", try reader.take_string());
+    try testing.expectEqualStrings("umbra", try reader.take_string());
     try testing.expectEqualStrings("sa{sv}", try reader.take_signature());
 }
 

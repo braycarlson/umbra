@@ -440,7 +440,7 @@ fn assert_icon_resource(comptime backend: type, comptime capabilities: Capabilit
 
     if (!supported) {
         @compileError(
-            "wisp backend claims the icon_resource capability but icon.supports_resource is false",
+            "umbra backend claims the icon_resource capability but icon.supports_resource is false",
         );
     }
 }
@@ -480,7 +480,7 @@ fn RequiredNamespaceType(
 
     if (@TypeOf(Namespace) != type) {
         @compileError(
-            "wisp backend " ++ label ++ "." ++ name ++ " must be a namespace, found " ++
+            "umbra backend " ++ label ++ "." ++ name ++ " must be a namespace, found " ++
                 @typeName(@TypeOf(Namespace)),
         );
     }
@@ -490,7 +490,7 @@ fn RequiredNamespaceType(
 
 fn require_decl(comptime scope: type, comptime name: []const u8, comptime label: []const u8) void {
     if (!@hasDecl(scope, name)) {
-        @compileError("wisp backend " ++ label ++ " is missing declaration '" ++ name ++ "'");
+        @compileError("umbra backend " ++ label ++ " is missing declaration '" ++ name ++ "'");
     }
 }
 
@@ -506,7 +506,7 @@ fn require_fn(
 
     if (Actual != Signature) {
         @compileError(
-            "wisp backend " ++ label ++ "." ++ name ++ " has type " ++ @typeName(Actual) ++
+            "umbra backend " ++ label ++ "." ++ name ++ " has type " ++ @typeName(Actual) ++
                 ", expected " ++ @typeName(Signature),
         );
     }
@@ -524,7 +524,7 @@ fn require_error_set(
 
     if (Actual != Expected) {
         @compileError(
-            "wisp backend " ++ label ++ "." ++ name ++ " is " ++ @typeName(Actual) ++
+            "umbra backend " ++ label ++ "." ++ name ++ " is " ++ @typeName(Actual) ++
                 ", expected the canonical set " ++ @typeName(Expected),
         );
     }
@@ -542,7 +542,7 @@ fn require_type(
 
     if (Actual != Expected) {
         @compileError(
-            "wisp backend " ++ label ++ "." ++ name ++ " is " ++ @typeName(Actual) ++
+            "umbra backend " ++ label ++ "." ++ name ++ " is " ++ @typeName(Actual) ++
                 ", expected " ++ @typeName(Expected),
         );
     }
@@ -638,6 +638,6 @@ test "NotificationOptions requires a title and a body" {
 }
 
 test "RuntimeOptions requires a name" {
-    try testing.expect((RuntimeOptions{ .name = "wisp" }).is_valid());
+    try testing.expect((RuntimeOptions{ .name = "umbra" }).is_valid());
     try testing.expect(!(RuntimeOptions{ .name = "" }).is_valid());
 }

@@ -27,13 +27,13 @@ pub const backend = if (build_options.backend_mock)
 else switch (builtin.os.tag) {
     .linux => @import("platform/linux.zig"),
     .windows => @import("platform/windows.zig"),
-    else => @compileError("wisp: unsupported target OS"),
+    else => @compileError("umbra: unsupported target OS"),
 };
 
 pub const mock = if (build_options.backend_mock)
     backend
 else
-    @compileError("wisp: mock surface requires -Dbackend=mock");
+    @compileError("umbra: mock surface requires -Dbackend=mock");
 
 pub const capabilities: Capabilities = backend.capabilities;
 

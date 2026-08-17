@@ -77,7 +77,7 @@ test "handle is available only while the runtime is open" {
 
     try testing.expect(handle() == null);
 
-    try runtime.open(.{ .name = "wisp" });
+    try runtime.open(.{ .name = "umbra" });
 
     try testing.expectEqual(@as(?Handle, handle_value), handle());
 
@@ -90,7 +90,7 @@ test "post records the message while the runtime is open" {
 
     try testing.expect(!post(1, 0, 0));
 
-    try runtime.open(.{ .name = "wisp" });
+    try runtime.open(.{ .name = "umbra" });
 
     try testing.expect(post(0x0010, 2, -3));
     try testing.expectEqual(@as(?u32, 0x0010), posted_message(0));

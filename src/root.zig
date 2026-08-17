@@ -160,6 +160,6 @@ fn make_icon_resource(id: u32) IconSource {
 }
 
 fn unavailable(comptime feature: []const u8, comptime capability: []const u8) noreturn {
-    @compileError("wisp: " ++ feature ++ " requires the " ++ capability ++
+    @compileError("umbra: " ++ feature ++ " requires the " ++ capability ++
         " capability, which this backend does not provide");
 }

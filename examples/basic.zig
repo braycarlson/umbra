@@ -1,12 +1,12 @@
 const std = @import("std");
 
-const wisp = @import("wisp");
+const umbra = @import("umbra");
 
-const App = wisp.App;
-const Event = wisp.Event;
-const IconBuilder = wisp.IconBuilder;
-const MenuBuilder = wisp.MenuBuilder;
-const Response = wisp.Response;
+const App = umbra.App;
+const Event = umbra.Event;
+const IconBuilder = umbra.IconBuilder;
+const MenuBuilder = umbra.MenuBuilder;
+const Response = umbra.Response;
 
 const MenuId = struct {
     pub const toggle_feature: u32 = 1;

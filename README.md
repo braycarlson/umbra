@@ -1,11 +1,11 @@
-<h1 align="center">wisp</h1>
+<h1 align="center">umbra</h1>
 
 <p align="center">
     A system tray application framework for Windows and Linux.
 </p>
 
 <p align="center">
-    <a href="https://github.com/braycarlson/wisp/actions/workflows/ci.yml"><img alt="ci" src="https://img.shields.io/github/actions/workflow/status/braycarlson/wisp/ci.yml?branch=main&amp;style=flat-square&amp;label=ci"></a>
+    <a href="https://github.com/braycarlson/umbra/actions/workflows/ci.yml"><img alt="ci" src="https://img.shields.io/github/actions/workflow/status/braycarlson/umbra/ci.yml?branch=main&amp;style=flat-square&amp;label=ci"></a>
     <a href="https://ziglang.org"><img alt="zig" src="https://img.shields.io/badge/zig-0.16.0-orange.svg?style=flat-square"></a>
     <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square"></a>
 </p>
@@ -33,23 +33,23 @@ application never touches a message loop of its own.
 
 ## Install
 
-The library ships as a Zig package holding one module, also named `wisp`. Fetch it into
+The library ships as a Zig package holding one module, also named `umbra`. Fetch it into
 your own project and import the module in your `build.zig`.
 
 ```
-zig fetch --save git+https://github.com/braycarlson/wisp
+zig fetch --save git+https://github.com/braycarlson/umbra
 ```
 
 ```zig
-const wisp = b.dependency("wisp", .{
+const umbra = b.dependency("umbra", .{
     .target = target,
     .optimize = optimize,
 });
 
-exe.root_module.addImport("wisp", wisp.module("wisp"));
+exe.root_module.addImport("umbra", umbra.module("umbra"));
 ```
 
-wisp requires Zig 0.16.0.
+umbra requires Zig 0.16.0.
 
 ## Usage
 
@@ -60,13 +60,13 @@ events that matter, and hand control to `run`. The full example lives in
 ```zig
 const std = @import("std");
 
-const wisp = @import("wisp");
+const umbra = @import("umbra");
 
-const App = wisp.App;
-const Event = wisp.Event;
-const IconBuilder = wisp.IconBuilder;
-const MenuBuilder = wisp.MenuBuilder;
-const Response = wisp.Response;
+const App = umbra.App;
+const Event = umbra.Event;
+const IconBuilder = umbra.IconBuilder;
+const MenuBuilder = umbra.MenuBuilder;
+const Response = umbra.Response;
 
 const Menu = struct {
     pub const toggle: u32 = 1;
@@ -128,11 +128,11 @@ The framework also carries the pieces a tray application needs beyond the tray i
 
 | Namespace | What it gives |
 |---|---|
-| `wisp.paths` | The configuration and state directories for a named application. |
-| `wisp.watcher` | The file watch that reports an edited configuration. |
-| `wisp.shell` | The handoff of a path to the desktop's own opener. |
-| `wisp.time` | The clock and the sleep the loop needs. |
-| `wisp.loop` | The quit and the custom message post. |
+| `umbra.paths` | The configuration and state directories for a named application. |
+| `umbra.watcher` | The file watch that reports an edited configuration. |
+| `umbra.shell` | The handoff of a path to the desktop's own opener. |
+| `umbra.time` | The clock and the sleep the loop needs. |
+| `umbra.loop` | The quit and the custom message post. |
 
 ## Development
 

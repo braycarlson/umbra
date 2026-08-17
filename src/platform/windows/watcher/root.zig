@@ -17,7 +17,7 @@ pub const Error = contract.WatcherError;
 
 pub const handle_max: u32 = 4;
 
-const change_message_name = std.unicode.utf8ToUtf16LeStringLiteral("WispWatcherChanged");
+const change_message_name = std.unicode.utf8ToUtf16LeStringLiteral("UmbraWatcherChanged");
 
 comptime {
     assert(handle_max > 0);

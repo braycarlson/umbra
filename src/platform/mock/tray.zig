@@ -150,7 +150,7 @@ const testing = std.testing;
 fn open_runtime() !void {
     runtime.reset();
 
-    try runtime.open(.{ .name = "wisp" });
+    try runtime.open(.{ .name = "umbra" });
 }
 
 test "create records the tray configuration" {
@@ -159,12 +159,12 @@ test "create records the tray configuration" {
     try open_runtime();
     defer runtime.reset();
 
-    try create(.{ .icon = 3, .id = 7, .tooltip = "wisp" });
+    try create(.{ .icon = 3, .id = 7, .tooltip = "umbra" });
 
     try testing.expect(is_created());
     try testing.expectEqual(@as(u32, 7), id());
     try testing.expectEqual(@as(?icon.Handle, 3), icon_handle());
-    try testing.expectEqualStrings("wisp", current_tooltip());
+    try testing.expectEqualStrings("umbra", current_tooltip());
 }
 
 test "create requires an open runtime" {

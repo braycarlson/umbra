@@ -260,7 +260,7 @@ test "watch rejects an oversized path" {
 test "watch reports a missing path" {
     try testing.expectError(
         Error.WatchFailed,
-        watch("/nonexistent/wisp/target", on_change, null),
+        watch("/nonexistent/umbra/target", on_change, null),
     );
 }
 
