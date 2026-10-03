@@ -34,7 +34,7 @@ comptime {
     assert(timer_max > 0);
 }
 
-var entries: [timer_max]?Timer = [_]?Timer{null} ** timer_max;
+var entries: [timer_max]?Timer = @splat(null);
 
 pub fn start(id: u32, interval_ms: u32) Error!void {
     if (interval_ms == 0 or interval_ms > interval_max) {
@@ -237,8 +237,8 @@ pub const Timer = struct {
 const testing = std.testing;
 
 test "State enum values" {
-    try testing.expectEqual(@as(u8, 0), @intFromEnum(State.running));
-    try testing.expectEqual(@as(u8, 1), @intFromEnum(State.stopped));
+    try testing.expectEqual(@as(u8, 0), @backingInt(State.running));
+    try testing.expectEqual(@as(u8, 1), @backingInt(State.stopped));
 }
 
 test "a fresh timer starts stopped" {

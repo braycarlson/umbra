@@ -23,7 +23,7 @@ const Entry = struct {
     interval_ms: u32,
 };
 
-var entries: [timer_max]?Entry = [_]?Entry{null} ** timer_max;
+var entries: [timer_max]?Entry = @splat(null);
 var watch_hook: ?Watch = null;
 
 pub fn set_watch(hook: ?Watch) void {

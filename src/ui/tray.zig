@@ -36,7 +36,7 @@ pub const TrayManager = struct {
         var result = TrayManager{
             .created = false,
             .id = config.id,
-            .tooltip = [_]u8{0} ** tooltip_max,
+            .tooltip = @splat(0),
             .tooltip_len = 0,
         };
 
@@ -233,7 +233,7 @@ test "a tray rejects an oversized tooltip" {
     var manager = TrayManager.init(.{ .tooltip = "Test" });
     defer manager.deinit();
 
-    const long = [_]u8{'a'} ** tooltip_max;
+    const long: [tooltip_max]u8 = @splat('a');
 
     try testing.expectError(Error.InvalidTooltip, manager.set_tooltip(&long));
 }

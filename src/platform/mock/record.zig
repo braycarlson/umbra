@@ -17,7 +17,7 @@ pub const Text = struct {
 
     pub fn empty() Text {
         const result = Text{
-            .bytes = [_]u8{0} ** text_bytes_max,
+            .bytes = @splat(0),
             .length = 0,
         };
 
@@ -78,7 +78,7 @@ test "recorded text stores and reads back" {
 
 test "recorded text truncates at its maximum" {
     var text = Text.empty();
-    const source = [_]u8{'a'} ** text_bytes_max;
+    const source: [text_bytes_max]u8 = @splat('a');
 
     text.set(&source);
 

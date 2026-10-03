@@ -60,11 +60,7 @@ test "a stopped lifecycle refuses every transition" {
 
     lifecycle.force_stop();
 
-    var index: u8 = 0;
-
-    while (index < @typeInfo(Stage).@"enum".fields.len) : (index += 1) {
-        const target: Stage = @enumFromInt(index);
-
+    for (std.enums.values(Stage)) |target| {
         try testing.expect(!lifecycle.transition(target));
     }
 }

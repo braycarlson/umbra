@@ -37,7 +37,7 @@ pub const Entry = struct {
 
         var result = Entry{
             .handle = null,
-            .name = [_]u8{0} ** name_max,
+            .name = @splat(0),
             .name_len = 0,
             .source = source,
         };
@@ -87,7 +87,7 @@ pub const IconManager = struct {
             .bus = null,
             .count = 0,
             .current = 0,
-            .entries = [_]?Entry{null} ** icon_max,
+            .entries = @splat(null),
             .loaded = false,
         };
 
@@ -366,7 +366,7 @@ test "a full icon manager refuses another icon" {
         assert(index < icon_max);
 
         var name: [8]u8 = undefined;
-        const formatted = std.fmt.bufPrint(&name, "{d}", .{index}) catch continue;
+        const formatted = std.mem.print(&name, "{d}", .{index}) catch continue;
 
         try manager.add_stock(formatted, .application);
     }

@@ -103,9 +103,9 @@ pub const Bus = struct {
         const result = Bus{
             .count = 0,
             .dispatching = false,
-            .generations = [_]u32{0} ** types.handler_max,
-            .handlers = [_]?Handler{null} ** types.handler_max,
-            .order = [_]u8{0} ** types.handler_max,
+            .generations = @splat(0),
+            .handlers = @splat(null),
+            .order = @splat(0),
             .pending = undefined,
             .pending_count = 0,
         };

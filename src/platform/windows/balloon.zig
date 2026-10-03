@@ -71,7 +71,7 @@ test "show rejects an incomplete balloon" {
 }
 
 test "show rejects an oversized balloon" {
-    const long_title = [_]u8{'a'} ** tray.title_max;
+    const long_title: [tray.title_max]u8 = @splat('a');
 
     try testing.expectError(Error.InvalidBalloon, show(.{ .body = "b", .title = &long_title }));
 }

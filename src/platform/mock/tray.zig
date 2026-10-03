@@ -191,7 +191,7 @@ test "create rejects an oversized tooltip" {
     try open_runtime();
     defer runtime.reset();
 
-    const long = [_]u8{'a'} ** tooltip_bytes_max;
+    const long: [tooltip_bytes_max]u8 = @splat('a');
 
     try testing.expectError(Error.InvalidTooltip, create(.{ .tooltip = &long }));
 }
@@ -223,7 +223,7 @@ test "set_tooltip rejects an oversized tooltip" {
 
     try create(.{});
 
-    const long = [_]u8{'a'} ** tooltip_bytes_max;
+    const long: [tooltip_bytes_max]u8 = @splat('a');
 
     try testing.expectError(Error.InvalidTooltip, set_tooltip(&long));
 }

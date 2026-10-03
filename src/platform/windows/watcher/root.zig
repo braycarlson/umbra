@@ -29,7 +29,7 @@ const Entry = struct {
     watcher: Watcher,
 };
 
-var entries: [handle_max]?Entry = [_]?Entry{null} ** handle_max;
+var entries: [handle_max]?Entry = @splat(null);
 var change_message: u32 = 0;
 
 const trampolines: [handle_max]watcher_mod.Callback = blk: {

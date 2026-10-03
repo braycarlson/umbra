@@ -115,7 +115,7 @@ test "open rejects an oversized name" {
         return;
     }
 
-    const long = [_]u8{'a'} ** name_bytes_max;
+    const long: [name_bytes_max]u8 = @splat('a');
 
     try testing.expectError(Error.InvalidOptions, open(.{ .name = &long }));
 }

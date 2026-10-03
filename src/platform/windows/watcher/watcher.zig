@@ -309,7 +309,7 @@ pub const WaitResult = enum(u8) {
     stopped = 2,
 
     pub fn is_valid(result: WaitResult) bool {
-        const value = @intFromEnum(result);
+        const value = @backingInt(result);
 
         return value <= wait_max;
     }
@@ -493,9 +493,9 @@ test "a valid signal handle reports as valid" {
 }
 
 test "WaitResult enum values" {
-    try testing.expectEqual(@as(u8, 0), @intFromEnum(WaitResult.complete));
-    try testing.expectEqual(@as(u8, 1), @intFromEnum(WaitResult.failed));
-    try testing.expectEqual(@as(u8, 2), @intFromEnum(WaitResult.stopped));
+    try testing.expectEqual(@as(u8, 0), @backingInt(WaitResult.complete));
+    try testing.expectEqual(@as(u8, 1), @backingInt(WaitResult.failed));
+    try testing.expectEqual(@as(u8, 2), @backingInt(WaitResult.stopped));
 }
 
 test "every wait result variant is valid" {

@@ -11,9 +11,9 @@ pub const Error = error{
 };
 
 pub const Path = struct {
-    directory: [path_max]u8 = [_]u8{0} ** path_max,
+    directory: [path_max]u8 = @splat(0),
     directory_len: u32 = 0,
-    filename: [path_max]u8 = [_]u8{0} ** path_max,
+    filename: [path_max]u8 = @splat(0),
     filename_len: u32 = 0,
 
     pub fn get_directory(path: *const Path) []const u8 {
@@ -42,11 +42,11 @@ pub const Path = struct {
             return Error.InvalidPath;
         }
 
-        const directory = std.fs.path.dirname(input) orelse {
+        const directory = std.Io.Dir.path.dirname(input) orelse {
             return Error.InvalidPath;
         };
 
-        const filename = std.fs.path.basename(input);
+        const filename = std.Io.Dir.path.basename(input);
 
         assert(directory.len > 0);
         assert(filename.len > 0);

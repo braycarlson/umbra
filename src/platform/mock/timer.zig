@@ -18,7 +18,7 @@ const Entry = struct {
     interval_ms: u32,
 };
 
-var entries: [timer_max]?Entry = [_]?Entry{null} ** timer_max;
+var entries: [timer_max]?Entry = @splat(null);
 var start_count: u32 = 0;
 var stop_count: u32 = 0;
 var fail_start: bool = false;
@@ -111,7 +111,7 @@ pub fn set_fail_start(fail: bool) void {
 }
 
 pub fn reset() void {
-    entries = [_]?Entry{null} ** timer_max;
+    entries = @splat(null);
     start_count = 0;
     stop_count = 0;
     fail_start = false;

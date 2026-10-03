@@ -24,7 +24,7 @@ pub const pixmap_dimension_max = contract.pixmap_dimension_max;
 
 pub const backend = if (build_options.backend_mock)
     @import("platform/mock.zig")
-else switch (builtin.os.tag) {
+else switch (builtin.target.os.tag) {
     .linux => @import("platform/linux.zig"),
     .windows => @import("platform/windows.zig"),
     else => @compileError("umbra: unsupported target OS"),

@@ -405,10 +405,10 @@ pub fn track() ?u32 {
 const testing = std.testing;
 
 test "ItemType enum values" {
-    try testing.expectEqual(@as(u8, 0), @intFromEnum(ItemType.bitmap));
-    try testing.expectEqual(@as(u8, 1), @intFromEnum(ItemType.owner_draw));
-    try testing.expectEqual(@as(u8, 2), @intFromEnum(ItemType.separator));
-    try testing.expectEqual(@as(u8, 3), @intFromEnum(ItemType.string));
+    try testing.expectEqual(@as(u8, 0), @backingInt(ItemType.bitmap));
+    try testing.expectEqual(@as(u8, 1), @backingInt(ItemType.owner_draw));
+    try testing.expectEqual(@as(u8, 2), @backingInt(ItemType.separator));
+    try testing.expectEqual(@as(u8, 3), @backingInt(ItemType.string));
 }
 
 test "ItemState defaults to unchecked enabled" {

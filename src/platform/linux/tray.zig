@@ -567,7 +567,7 @@ fn contains_key(bytes: []const u8, key: []const u8) bool {
 
     encoded[4 + key.len] = 0;
 
-    return std.mem.indexOf(u8, bytes, encoded[0 .. key.len + 5]) != null;
+    return std.mem.find(u8, bytes, encoded[0 .. key.len + 5]) != null;
 }
 
 test "write_all advertises every property that write_property answers" {
@@ -594,7 +594,7 @@ test "write_all advertises every property that write_property answers" {
 test "an oversized tooltip is an error rather than a truncation" {
     reset();
 
-    const long = [_]u8{'a'} ** tooltip_bytes_max;
+    const long: [tooltip_bytes_max]u8 = @splat('a');
 
     try testing.expectError(Error.InvalidTooltip, create(.{ .tooltip = &long }));
     try testing.expectError(Error.NotCreated, set_tooltip(&long));

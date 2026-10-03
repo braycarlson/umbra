@@ -85,7 +85,7 @@ pub const App = struct {
             .icon = IconManager.init(),
             .lifecycle = Lifecycle.init(),
             .menu = MenuManager.init(),
-            .name = [_]u8{0} ** name_max,
+            .name = @splat(0),
             .name_len = @intCast(config.name.len),
             .notification = NotificationManager.init(),
             .state = StateManager.init(),
@@ -329,7 +329,7 @@ test "an application rejects an empty name" {
 test "an application rejects an oversized name" {
     var app: App = undefined;
 
-    const long = [_]u8{'a'} ** name_max;
+    const long: [name_max]u8 = @splat('a');
 
     try testing.expectError(Error.InvalidName, app.init(.{ .name = &long }));
 }
@@ -345,7 +345,7 @@ test "an application rejects a name that is not valid utf8" {
 test "an application rejects an oversized initial state" {
     var app: App = undefined;
 
-    const long = [_]u8{'a'} ** ui.state.state_max;
+    const long: [ui.state.state_max]u8 = @splat('a');
 
     try testing.expectError(
         Error.InvalidState,
@@ -377,7 +377,7 @@ test "an application falls back to its name for the tooltip" {
 test "an application rejects an oversized tooltip" {
     var app: App = undefined;
 
-    const long = [_]u8{'a'} ** ui.tray.tooltip_max;
+    const long: [ui.tray.tooltip_max]u8 = @splat('a');
 
     try testing.expectError(Error.InvalidTooltip, app.init(.{ .name = "MyApp", .tooltip = &long }));
 }

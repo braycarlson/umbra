@@ -22,14 +22,14 @@ pub const Stage = enum(u8) {
     }
 };
 
-pub const stage_count: u8 = @typeInfo(Stage).@"enum".fields.len;
+pub const stage_count: u8 = @typeInfo(Stage).@"enum".field_names.len;
 
 comptime {
     assert(stage_count == 5);
-    assert(@intFromEnum(Stage.created) < @intFromEnum(Stage.configured));
-    assert(@intFromEnum(Stage.configured) < @intFromEnum(Stage.running));
-    assert(@intFromEnum(Stage.running) < @intFromEnum(Stage.stopping));
-    assert(@intFromEnum(Stage.stopping) < @intFromEnum(Stage.stopped));
+    assert(@backingInt(Stage.created) < @backingInt(Stage.configured));
+    assert(@backingInt(Stage.configured) < @backingInt(Stage.running));
+    assert(@backingInt(Stage.running) < @backingInt(Stage.stopping));
+    assert(@backingInt(Stage.stopping) < @backingInt(Stage.stopped));
 }
 
 pub const Lifecycle = struct {

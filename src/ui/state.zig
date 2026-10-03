@@ -41,12 +41,12 @@ pub const StateManager = struct {
 
     pub fn init() StateManager {
         const result = StateManager{
-            .current = [_]u8{0} ** state_max,
+            .current = @splat(0),
             .current_len = 0,
             .history = undefined,
             .history_count = 0,
             .history_index = 0,
-            .previous = [_]u8{0} ** state_max,
+            .previous = @splat(0),
             .previous_len = 0,
             .bus = null,
         };
@@ -363,7 +363,7 @@ test "history reads oldest first after the ring wraps" {
         assert(index < history_max + 2);
 
         var name: [8]u8 = undefined;
-        const formatted = try std.fmt.bufPrint(&name, "s{d}", .{index});
+        const formatted = try std.mem.print(&name, "s{d}", .{index});
 
         try manager.set(formatted);
     }
@@ -406,7 +406,7 @@ test "StateManager history wraps at max capacity" {
         assert(index < history_max + 2);
 
         var name: [8]u8 = undefined;
-        const formatted = std.fmt.bufPrint(&name, "{d}", .{index}) catch continue;
+        const formatted = std.mem.print(&name, "{d}", .{index}) catch continue;
 
         try manager.set(formatted);
     }

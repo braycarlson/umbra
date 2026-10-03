@@ -93,7 +93,7 @@ fn execute_opener() noreturn {
 }
 
 fn reap(child: linux.pid_t) void {
-    var status: u32 = 0;
+    var status: i32 = 0;
     var attempt: u32 = 0;
 
     while (attempt < sys.interrupt_retry_max) : (attempt += 1) {
@@ -117,7 +117,7 @@ fn build_candidates(path_value: []const u8) void {
     var start: usize = 0;
 
     while (start <= path_value.len and candidate_count < candidate_count_max - 1) {
-        const end = std.mem.indexOfScalarPos(u8, path_value, start, path_separator) orelse
+        const end = std.mem.findScalarPos(u8, path_value, start, path_separator) orelse
             path_value.len;
 
         const entry = path_value[start..end];
@@ -165,7 +165,7 @@ test "open rejects an empty path" {
 }
 
 test "open rejects an oversized path" {
-    const long = [_]u8{'a'} ** contract.path_bytes_max;
+    const long: [contract.path_bytes_max]u8 = @splat('a');
 
     try testing.expectError(Error.InvalidPath, open(&long));
 }
@@ -185,11 +185,11 @@ test "build_candidates appends the opener to every searchable entry" {
 }
 
 test "build_candidates skips empty and oversized entries" {
-    const oversized = [_]u8{'d'} ** candidate_bytes_max;
+    const oversized: [candidate_bytes_max]u8 = @splat('d');
 
     var path_buffer: [candidate_bytes_max + 16]u8 = undefined;
 
-    const path_value = try std.fmt.bufPrint(
+    const path_value = try std.mem.print(
         &path_buffer,
         "::{s}:/opt",
         .{oversized},

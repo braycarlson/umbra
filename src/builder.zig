@@ -235,7 +235,7 @@ test "an icon builder adds a pixmap icon" {
     var manager = IconManager.init();
     defer manager.deinit();
 
-    const argb = [_]u8{0} ** 16;
+    const argb: [16]u8 = @splat(0);
 
     _ = IconBuilder.init(&manager)
         .pixels("pixels", ui.IconPixmap.init(&argb, 2, 2));

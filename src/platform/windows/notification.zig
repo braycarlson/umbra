@@ -49,5 +49,5 @@ test "translate maps every balloon failure" {
     try testing.expectEqual(Error.SendFailed, translate(balloon.Error.ShowFailed));
     try testing.expectEqual(Error.SendFailed, translate(balloon.Error.HideFailed));
 
-    assert(@typeInfo(balloon.Error).error_set.?.len == 4);
+    assert(@typeInfo(balloon.Error).error_set.error_names.?.len == 4);
 }

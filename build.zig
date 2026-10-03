@@ -50,6 +50,12 @@ pub fn build(b: *std.Build) void {
     const backend = b.option(Backend, "backend", "Backend selection: native or mock") orelse
         .native;
 
+    const filters = b.option(
+        []const []const u8,
+        "test-filter",
+        "Skip tests that do not match any filter",
+    ) orelse &.{};
+
     const options = b.addOptions();
 
     options.addOption([]const u8, "library", "umbra");
@@ -73,10 +79,10 @@ pub fn build(b: *std.Build) void {
     umbra.addImport("build_options", build_options);
 
     add_format(b, &steps);
-    add_unit_tests(b, &steps, mock_build_options, optimize);
-    add_mock_tests(b, &steps, mock_build_options, optimize);
-    add_linux_tests(b, &steps, build_options, optimize);
-    add_windows_tests(b, &steps, build_options, target, optimize);
+    add_unit_tests(b, &steps, mock_build_options, optimize, filters);
+    add_mock_tests(b, &steps, mock_build_options, optimize, filters);
+    add_linux_tests(b, &steps, build_options, optimize, filters);
+    add_windows_tests(b, &steps, build_options, target, optimize, filters);
     add_fuzz(b, &steps, mock_build_options, optimize);
     add_examples(b, &steps, umbra, target, optimize);
 
@@ -93,7 +99,7 @@ pub fn build(b: *std.Build) void {
 
 fn add_format(b: *std.Build, steps: *const Steps) void {
     const fmt = b.addFmt(.{
-        .paths = &format_paths,
+        .paths = b.pathList(&format_paths),
         .check = true,
     });
 
@@ -105,7 +111,8 @@ fn add_unit_tests(
     b: *std.Build,
     steps: *const Steps,
     build_options: *std.Build.Module,
-    optimize: std.builtin.OptimizeMode,
+    optimize: std.lang.Optimize,
+    filters: []const []const u8,
 ) void {
     const module = b.createModule(.{
         .root_source_file = b.path("src/unit_tests.zig"),
@@ -116,7 +123,7 @@ fn add_unit_tests(
 
     const suite = b.addTest(.{
         .root_module = module,
-        .filters = b.args orelse &.{},
+        .filters = filters,
     });
 
     const run = b.addRunArtifact(suite);
@@ -132,7 +139,8 @@ fn add_mock_tests(
     b: *std.Build,
     steps: *const Steps,
     build_options: *std.Build.Module,
-    optimize: std.builtin.OptimizeMode,
+    optimize: std.lang.Optimize,
+    filters: []const []const u8,
 ) void {
     const module = b.createModule(.{
         .root_source_file = b.path("src/mock_tests.zig"),
@@ -143,7 +151,7 @@ fn add_mock_tests(
 
     const suite = b.addTest(.{
         .root_module = module,
-        .filters = b.args orelse &.{},
+        .filters = filters,
     });
 
     const run = b.addRunArtifact(suite);
@@ -159,7 +167,8 @@ fn add_linux_tests(
     b: *std.Build,
     steps: *const Steps,
     build_options: *std.Build.Module,
-    optimize: std.builtin.OptimizeMode,
+    optimize: std.lang.Optimize,
+    filters: []const []const u8,
 ) void {
     if (b.graph.host.result.os.tag != .linux) {
         return;
@@ -174,7 +183,7 @@ fn add_linux_tests(
 
     const suite = b.addTest(.{
         .root_module = module,
-        .filters = b.args orelse &.{},
+        .filters = filters,
     });
 
     const run = b.addRunArtifact(suite);
@@ -191,7 +200,8 @@ fn add_windows_tests(
     steps: *const Steps,
     build_options: *std.Build.Module,
     target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
+    optimize: std.lang.Optimize,
+    filters: []const []const u8,
 ) void {
     if (target.result.os.tag != .windows) {
         return;
@@ -206,7 +216,7 @@ fn add_windows_tests(
 
     const suite = b.addTest(.{
         .root_module = module,
-        .filters = b.args orelse &.{},
+        .filters = filters,
     });
 
     steps.check.dependOn(&suite.step);
@@ -227,7 +237,7 @@ fn add_fuzz(
     b: *std.Build,
     steps: *const Steps,
     build_options: *std.Build.Module,
-    optimize: std.builtin.OptimizeMode,
+    optimize: std.lang.Optimize,
 ) void {
     const module = b.createModule(.{
         .root_source_file = b.path("src/fuzz_tests.zig"),
@@ -246,8 +256,7 @@ fn add_fuzz(
     const run = b.addRunArtifact(exe);
 
     run.setCwd(b.path("."));
-
-    if (b.args) |args| run.addArgs(args);
+    run.addPassthruArgs();
 
     const smoke = b.addRunArtifact(exe);
 
@@ -265,7 +274,7 @@ fn add_examples(
     steps: *const Steps,
     umbra: *std.Build.Module,
     target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
+    optimize: std.lang.Optimize,
 ) void {
     add_example_directory(b, steps, umbra, target, optimize, example_directory);
 
@@ -279,13 +288,15 @@ fn add_example_directory(
     steps: *const Steps,
     umbra: *std.Build.Module,
     target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
+    optimize: std.lang.Optimize,
     comptime directory: []const u8,
 ) void {
     const io = b.graph.io;
 
-    var dir = b.build_root.handle.openDir(io, directory, .{ .iterate = true }) catch return;
+    var dir = b.root.openDir(io, directory, .{ .iterate = true }) catch return;
     defer dir.close(io);
+
+    b.dependOnDirectoryContents(b.path(directory));
 
     var iterator = dir.iterate();
 
@@ -297,7 +308,7 @@ fn add_example_directory(
 
         var path_buffer: [example_name_bytes_max]u8 = undefined;
 
-        const path = std.fmt.bufPrint(
+        const path = std.mem.print(
             &path_buffer,
             "{s}/{s}",
             .{ directory, entry.name },
@@ -321,11 +332,11 @@ fn add_example_directory(
         steps.check.dependOn(&exe.step);
 
         var run_name_buffer: [example_name_bytes_max]u8 = undefined;
-        const run_name = std.fmt.bufPrint(&run_name_buffer, "run-{s}", .{name}) catch continue;
+        const run_name = std.mem.print(&run_name_buffer, "run-{s}", .{name}) catch continue;
 
         var description_buffer: [example_name_bytes_max]u8 = undefined;
 
-        const description = std.fmt.bufPrint(
+        const description = std.mem.print(
             &description_buffer,
             "Run the {s} example",
             .{name},

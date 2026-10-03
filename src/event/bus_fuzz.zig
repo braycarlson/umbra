@@ -161,9 +161,9 @@ test "payload_for covers every kind" {
     var index: u8 = 0;
 
     while (index < types.kind_count) : (index += 1) {
-        const kind: Kind = @enumFromInt(index);
+        const kind: Kind = @fromBackingInt(index);
         const payload = payload_for(kind);
 
-        try testing.expectEqual(index, @as(u8, @intFromEnum(payload)));
+        try testing.expectEqual(index, @as(u8, @backingInt(payload)));
     }
 }

@@ -36,7 +36,7 @@ const Entry = struct {
 };
 
 var inotify_fd: ?sys.Fd = null;
-var entries: [handle_max]?Entry = [_]?Entry{null} ** handle_max;
+var entries: [handle_max]?Entry = @splat(null);
 var watch_hook: ?Watch = null;
 
 pub fn set_watch(hook: ?Watch) void {
@@ -252,7 +252,7 @@ test "watch rejects an empty path" {
 }
 
 test "watch rejects an oversized path" {
-    const long = [_]u8{'a'} ** path_bytes_max;
+    const long: [path_bytes_max]u8 = @splat('a');
 
     try testing.expectError(Error.InvalidPath, watch(&long, on_change, null));
 }

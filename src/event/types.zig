@@ -23,13 +23,13 @@ pub const Kind = enum(u8) {
     window_message = 12,
 
     pub fn is_valid(kind: Kind) bool {
-        const value = @intFromEnum(kind);
+        const value = @backingInt(kind);
 
         return value < kind_count;
     }
 };
 
-pub const kind_count: u8 = @typeInfo(Kind).@"enum".fields.len;
+pub const kind_count: u8 = @typeInfo(Kind).@"enum".field_names.len;
 
 comptime {
     assert(kind_count == 13);

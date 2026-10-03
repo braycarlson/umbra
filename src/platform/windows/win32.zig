@@ -104,7 +104,7 @@ pub const GUID = extern struct {
     Data1: u32 = 0,
     Data2: u16 = 0,
     Data3: u16 = 0,
-    Data4: [8]u8 = [_]u8{0} ** 8,
+    Data4: [8]u8 = @splat(0),
 };
 
 pub const POINT = extern struct {

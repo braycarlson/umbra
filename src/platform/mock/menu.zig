@@ -164,7 +164,7 @@ test "build rejects an invalid item" {
 test "build rejects an oversized label" {
     reset();
 
-    const long = [_]u8{'a'} ** label_bytes_max;
+    const long: [label_bytes_max]u8 = @splat('a');
     const items = [_]Item{.{ .id = 1, .kind = .action, .label = &long }};
 
     try testing.expectError(Error.InvalidItem, build(&items));

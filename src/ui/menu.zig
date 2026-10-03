@@ -90,11 +90,11 @@ pub const Item = struct {
         const result = Item{
             .checked = false,
             .enabled = true,
-            .group = [_]u8{0} ** group_max,
+            .group = @splat(0),
             .group_len = 0,
             .id = 0,
             .kind = .action,
-            .label = [_]u8{0} ** label_max,
+            .label = @splat(0),
             .label_len = 0,
             .visible = true,
         };
@@ -174,7 +174,7 @@ pub const MenuManager = struct {
         const result = MenuManager{
             .count = 0,
             .dirty = true,
-            .items = [_]?Item{null} ** item_max,
+            .items = @splat(null),
         };
 
         assert(result.count == 0);

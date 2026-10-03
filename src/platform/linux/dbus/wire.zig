@@ -36,7 +36,7 @@ pub const Kind = enum(u8) {
     signal = 4,
 
     pub fn is_valid(kind: Kind) bool {
-        return @intFromEnum(kind) <= @intFromEnum(Kind.signal);
+        return @backingInt(kind) <= @backingInt(Kind.signal);
     }
 };
 
@@ -74,8 +74,8 @@ comptime {
     assert(nesting_max > 0);
     assert(receive_bytes_limit >= body_bytes_max);
     assert(field_count_max > 0);
-    assert(@typeInfo(Kind).@"enum".fields.len == 5);
-    assert(@typeInfo(Field).@"enum".fields.len == 10);
+    assert(@typeInfo(Kind).@"enum".field_names.len == 5);
+    assert(@typeInfo(Field).@"enum".field_names.len == 10);
     assert(align_of(code_byte) == 1);
     assert(align_of(code_string) == 4);
     assert(align_of(code_variant) == 1);
@@ -494,11 +494,11 @@ fn take_header_fixed(reader: *Reader, header: *Header, total: u32) Error!void {
 
     const raw_kind = try reader.take_byte();
 
-    if (raw_kind > @intFromEnum(Kind.signal)) {
+    if (raw_kind > @backingInt(Kind.signal)) {
         return Error.Malformed;
     }
 
-    header.kind = @enumFromInt(raw_kind);
+    header.kind = @fromBackingInt(raw_kind);
 
     _ = try reader.take_byte();
 
@@ -560,7 +560,7 @@ fn take_field(reader: *Reader, header: *Header, code: u8, signature: u8) Error!v
         'u' => {
             const value = try reader.take_u32();
 
-            if (code == @intFromEnum(Field.reply_serial)) {
+            if (code == @backingInt(Field.reply_serial)) {
                 header.reply_serial = value;
             }
         },
@@ -570,13 +570,13 @@ fn take_field(reader: *Reader, header: *Header, code: u8, signature: u8) Error!v
 
 fn store_string(header: *Header, code: u8, value: []const u8) void {
     switch (code) {
-        @intFromEnum(Field.path) => header.path = value,
-        @intFromEnum(Field.interface) => header.interface = value,
-        @intFromEnum(Field.member) => header.member = value,
-        @intFromEnum(Field.error_name) => header.error_name = value,
-        @intFromEnum(Field.destination) => header.destination = value,
-        @intFromEnum(Field.sender) => header.sender = value,
-        @intFromEnum(Field.signature) => header.signature = value,
+        @backingInt(Field.path) => header.path = value,
+        @backingInt(Field.interface) => header.interface = value,
+        @backingInt(Field.member) => header.member = value,
+        @backingInt(Field.error_name) => header.error_name = value,
+        @backingInt(Field.destination) => header.destination = value,
+        @backingInt(Field.sender) => header.sender = value,
+        @backingInt(Field.signature) => header.signature = value,
         else => {},
     }
 }
@@ -601,7 +601,7 @@ pub fn write_header(writer: *Writer, options: MessageOptions, body_length: u32) 
     writer.reset();
 
     try writer.put_byte(endian_little);
-    try writer.put_byte(@intFromEnum(options.kind));
+    try writer.put_byte(@backingInt(options.kind));
     try writer.put_byte(options.flags.to_uint());
     try writer.put_byte(protocol_version);
     try writer.put_u32(body_length);
@@ -622,7 +622,7 @@ pub fn write_header(writer: *Writer, options: MessageOptions, body_length: u32) 
 
     if (options.reply_serial) |serial| {
         try writer.pad_to(8);
-        try writer.put_byte(@intFromEnum(Field.reply_serial));
+        try writer.put_byte(@backingInt(Field.reply_serial));
         try writer.put_signature("u");
         try writer.put_u32(serial);
     }
@@ -646,7 +646,7 @@ fn write_string_field(
     }
 
     try writer.pad_to(8);
-    try writer.put_byte(@intFromEnum(field));
+    try writer.put_byte(@backingInt(field));
     try writer.put_signature(&[_]u8{signature});
 
     if (signature == 'g') {
@@ -727,7 +727,7 @@ test "peek_length needs a full fixed header" {
 }
 
 test "peek_length rejects big endian" {
-    var buffer = [_]u8{0} ** header_bytes_min;
+    var buffer: [header_bytes_min]u8 = @splat(0);
 
     buffer[0] = endian_big;
     buffer[3] = protocol_version;

@@ -33,11 +33,11 @@ pub const Notification = struct {
         assert(body.len < body_max);
 
         var result = Notification{
-            .body = [_]u8{0} ** body_max,
+            .body = @splat(0),
             .body_len = 0,
             .icon = .info,
             .silent = false,
-            .title = [_]u8{0} ** title_max,
+            .title = @splat(0),
             .title_len = 0,
         };
 
@@ -256,7 +256,7 @@ test "a notification rejects an empty body" {
     try testing.expectError(Error.InvalidNotification, notification.set_body(""));
     try testing.expectEqualStrings("Original", notification.get_body());
 
-    const long = [_]u8{'a'} ** body_max;
+    const long: [body_max]u8 = @splat('a');
 
     try testing.expectError(Error.InvalidNotification, notification.set_body(&long));
 }

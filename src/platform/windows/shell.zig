@@ -57,7 +57,7 @@ test "open rejects an empty path" {
 }
 
 test "open rejects an oversized path" {
-    const long = [_]u8{'a'} ** contract.path_bytes_max;
+    const long: [contract.path_bytes_max]u8 = @splat('a');
 
     try testing.expectError(Error.InvalidPath, open(&long));
 }

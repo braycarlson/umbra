@@ -124,7 +124,7 @@ pub const Icon = struct {
     }
 };
 
-var entries: [handle_max]?Icon = [_]?Icon{null} ** handle_max;
+var entries: [handle_max]?Icon = @splat(null);
 
 pub fn load(source: Source) Error!Handle {
     if (!source.is_valid()) {
@@ -459,7 +459,7 @@ test "translate maps every native failure" {
     try testing.expectEqual(Error.LoadFailed, translate(NativeError.LoadFailed));
     try testing.expectEqual(Error.LoadFailed, translate(NativeError.PathConversionFailed));
 
-    assert(@typeInfo(NativeError).error_set.?.len == 5);
+    assert(@typeInfo(NativeError).error_set.error_names.?.len == 5);
 }
 
 test "a resource source carries its id" {

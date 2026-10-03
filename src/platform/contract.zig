@@ -14,7 +14,7 @@ pub const Capabilities = struct {
     window_message: bool,
 };
 
-pub const capability_count: u8 = @typeInfo(Capabilities).@"struct".fields.len;
+pub const capability_count: u8 = @typeInfo(Capabilities).@"struct".field_names.len;
 
 pub const pixmap_dimension_max: u32 = 256;
 pub const pixmap_bytes_max: u32 = pixmap_dimension_max * pixmap_dimension_max * 4;
@@ -30,7 +30,7 @@ pub const Stock = enum(u8) {
     warning = 5,
 
     pub fn is_valid(stock: Stock) bool {
-        return @intFromEnum(stock) <= @intFromEnum(Stock.warning);
+        return @backingInt(stock) <= @backingInt(Stock.warning);
     }
 };
 
@@ -99,7 +99,7 @@ pub const MenuItemKind = enum(u8) {
     toggle = 3,
 
     pub fn is_valid(kind: MenuItemKind) bool {
-        return @intFromEnum(kind) <= @intFromEnum(MenuItemKind.toggle);
+        return @backingInt(kind) <= @backingInt(MenuItemKind.toggle);
     }
 };
 
@@ -130,7 +130,7 @@ pub const NotificationKind = enum(u8) {
     warning = 3,
 
     pub fn is_valid(kind: NotificationKind) bool {
-        return @intFromEnum(kind) <= @intFromEnum(NotificationKind.warning);
+        return @backingInt(kind) <= @backingInt(NotificationKind.warning);
     }
 };
 
@@ -247,20 +247,20 @@ comptime {
     assert(pixmap_bytes_max == pixmap_dimension_max * pixmap_dimension_max * channel_count);
     assert(channel_count == 4);
     assert(path_bytes_max >= 260);
-    assert(@typeInfo(Stock).@"enum".fields.len == 6);
-    assert(@typeInfo(MenuItemKind).@"enum".fields.len == 4);
-    assert(@typeInfo(NotificationKind).@"enum".fields.len == 4);
-    assert(@typeInfo(BalloonError).error_set.?.len == 4);
-    assert(@typeInfo(IconError).error_set.?.len == 8);
-    assert(@typeInfo(LoopError).error_set.?.len == 3);
-    assert(@typeInfo(MenuError).error_set.?.len == 5);
-    assert(@typeInfo(NotificationError).error_set.?.len == 2);
-    assert(@typeInfo(PathError).error_set.?.len == 2);
-    assert(@typeInfo(RuntimeError).error_set.?.len == 3);
-    assert(@typeInfo(ShellError).error_set.?.len == 2);
-    assert(@typeInfo(TimerError).error_set.?.len == 6);
-    assert(@typeInfo(TrayError).error_set.?.len == 7);
-    assert(@typeInfo(WatcherError).error_set.?.len == 3);
+    assert(@typeInfo(Stock).@"enum".field_names.len == 6);
+    assert(@typeInfo(MenuItemKind).@"enum".field_names.len == 4);
+    assert(@typeInfo(NotificationKind).@"enum".field_names.len == 4);
+    assert(@typeInfo(BalloonError).error_set.error_names.?.len == 4);
+    assert(@typeInfo(IconError).error_set.error_names.?.len == 8);
+    assert(@typeInfo(LoopError).error_set.error_names.?.len == 3);
+    assert(@typeInfo(MenuError).error_set.error_names.?.len == 5);
+    assert(@typeInfo(NotificationError).error_set.error_names.?.len == 2);
+    assert(@typeInfo(PathError).error_set.error_names.?.len == 2);
+    assert(@typeInfo(RuntimeError).error_set.error_names.?.len == 3);
+    assert(@typeInfo(ShellError).error_set.error_names.?.len == 2);
+    assert(@typeInfo(TimerError).error_set.error_names.?.len == 6);
+    assert(@typeInfo(TrayError).error_set.error_names.?.len == 7);
+    assert(@typeInfo(WatcherError).error_set.error_names.?.len == 3);
 }
 
 pub fn assert_backend(comptime backend: type) void {
@@ -592,7 +592,7 @@ test "Stock covers every documented variant" {
 }
 
 test "Pixmap accepts a correctly sized buffer" {
-    const argb = [_]u8{0} ** (2 * 2 * channel_count);
+    const argb: [2 * 2 * channel_count]u8 = @splat(0);
     const pixmap = Pixmap.init(&argb, 2, 2);
 
     try testing.expect(pixmap.is_valid());
@@ -600,21 +600,21 @@ test "Pixmap accepts a correctly sized buffer" {
 }
 
 test "Pixmap rejects a mismatched buffer" {
-    const argb = [_]u8{0} ** 8;
+    const argb: [8]u8 = @splat(0);
     const pixmap = Pixmap{ .argb = &argb, .height = 2, .width = 2 };
 
     try testing.expect(!pixmap.is_valid());
 }
 
 test "Pixmap rejects dimensions beyond the maximum" {
-    const argb = [_]u8{0} ** 4;
+    const argb: [4]u8 = @splat(0);
     const pixmap = Pixmap{ .argb = &argb, .height = 1, .width = pixmap_dimension_max + 1 };
 
     try testing.expect(!pixmap.is_valid());
 }
 
 test "IconSource validates each variant" {
-    const argb = [_]u8{0} ** channel_count;
+    const argb: [channel_count]u8 = @splat(0);
 
     try testing.expect((IconSource{ .file_path = "icon.png" }).is_valid());
     try testing.expect((IconSource{ .pixels = Pixmap.init(&argb, 1, 1) }).is_valid());

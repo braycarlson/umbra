@@ -58,7 +58,7 @@ pub const TimerManager = struct {
     pub fn init() TimerManager {
         const result = TimerManager{
             .count = 0,
-            .entries = [_]?Entry{null} ** timer_max,
+            .entries = @splat(null),
         };
 
         assert(result.count == 0);

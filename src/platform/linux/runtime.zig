@@ -40,7 +40,7 @@ comptime {
     assert(instance_id_max > 0);
     assert(request_name_primary_owner < request_name_in_queue);
     assert(request_name_exists < request_name_already_owner);
-    assert(std.mem.indexOf(u8, watcher_match_rule, watcher_name) != null);
+    assert(std.mem.find(u8, watcher_match_rule, watcher_name) != null);
 }
 
 var opened: bool = false;
@@ -116,7 +116,7 @@ pub fn bus_name() []const u8 {
 }
 
 pub fn build_bus_name(buffer: []u8, pid: u32, id: u32) ?[]const u8 {
-    const result = std.fmt.bufPrint(
+    const result = std.mem.print(
         buffer,
         "org.kde.StatusNotifierItem-{d}-{d}",
         .{ pid, id },
@@ -259,7 +259,7 @@ test "open rejects an empty name" {
 test "open rejects an oversized name" {
     reset();
 
-    const long = [_]u8{'a'} ** name_bytes_max;
+    const long: [name_bytes_max]u8 = @splat('a');
 
     try testing.expectError(Error.InvalidOptions, open(.{ .name = &long }));
 }

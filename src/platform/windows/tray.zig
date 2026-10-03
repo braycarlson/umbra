@@ -721,5 +721,5 @@ test "translate maps every native failure" {
     try testing.expectEqual(Error.UpdateFailed, translate(NativeError.ModifyFailed));
     try testing.expectEqual(Error.UpdateFailed, translate(NativeError.DeleteFailed));
 
-    assert(@typeInfo(NativeError).error_set.?.len == 9);
+    assert(@typeInfo(NativeError).error_set.error_names.?.len == 9);
 }

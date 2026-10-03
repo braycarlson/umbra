@@ -25,7 +25,7 @@ const Entry = struct {
     path: record.Text,
 };
 
-var entries: [handle_max]?Entry = [_]?Entry{null} ** handle_max;
+var entries: [handle_max]?Entry = @splat(null);
 var watch_count: u32 = 0;
 var unwatch_count: u32 = 0;
 var fail_watch: bool = false;
@@ -130,7 +130,7 @@ pub fn set_fail_watch(fail: bool) void {
 }
 
 pub fn reset() void {
-    entries = [_]?Entry{null} ** handle_max;
+    entries = @splat(null);
     watch_count = 0;
     unwatch_count = 0;
     fail_watch = false;
@@ -176,7 +176,7 @@ test "watch rejects an empty path" {
 test "watch rejects an oversized path" {
     reset();
 
-    const long = [_]u8{'a'} ** path_bytes_max;
+    const long: [path_bytes_max]u8 = @splat('a');
 
     try testing.expectError(Error.InvalidPath, watch(&long, on_change, null));
 }

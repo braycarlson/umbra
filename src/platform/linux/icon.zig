@@ -21,7 +21,7 @@ comptime {
     assert(pixmap_bytes_max > 0);
 }
 
-var entries: [handle_max]?Source = [_]?Source{null} ** handle_max;
+var entries: [handle_max]?Source = @splat(null);
 var paths: [handle_max][path_bytes_max]u8 = undefined;
 var pixmap_storage: [pixmap_bytes_max]u8 = undefined;
 var pixmap_used: u32 = 0;
@@ -141,7 +141,7 @@ fn release_pixmap() void {
 }
 
 fn reset() void {
-    entries = [_]?Source{null} ** handle_max;
+    entries = @splat(null);
     pixmap_used = 0;
     pixmap_live = 0;
 
@@ -250,7 +250,7 @@ test "load reports capacity exhaustion" {
     reset();
 }
 
-const full_argb = [_]u8{0} ** pixmap_bytes_max;
+const full_argb: [pixmap_bytes_max]u8 = @splat(0);
 
 test "the pixmap arena reports exhaustion and reclaims on release" {
     reset();

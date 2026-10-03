@@ -17,7 +17,7 @@ comptime {
     assert(handle_max > 0);
 }
 
-var entries: [handle_max]?Source = [_]?Source{null} ** handle_max;
+var entries: [handle_max]?Source = @splat(null);
 var load_count: u32 = 0;
 var destroy_count: u32 = 0;
 var fail_load: bool = false;
@@ -92,7 +92,7 @@ pub fn set_fail_load(fail: bool) void {
 }
 
 pub fn reset() void {
-    entries = [_]?Source{null} ** handle_max;
+    entries = @splat(null);
     load_count = 0;
     destroy_count = 0;
     fail_load = false;
