@@ -1,0 +1,21 @@
+const std = @import("std");
+
+const w32 = @import("win32.zig");
+
+const assert = std.debug.assert;
+
+pub fn now_ms() u64 {
+    const result: u64 = w32.GetTickCount64();
+    return result;
+}
+
+const testing = std.testing;
+
+test "now_ms never moves backwards" {
+    const first = now_ms();
+    const second = now_ms();
+
+    assert(second >= first);
+
+    try testing.expect(second >= first);
+}

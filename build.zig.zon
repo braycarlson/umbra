@@ -1,0 +1,13 @@
+.{
+    .name = .umbra,
+    .version = "0.1.0",
+    .minimum_zig_version = "0.17.0",
+    .fingerprint = 0x52b3e288a671e8d8,
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "LICENSE",
+        "src",
+    },
+    .dependencies = .{},
+}
